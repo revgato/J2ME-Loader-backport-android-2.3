@@ -143,15 +143,19 @@ public class MicroLoader {
 		if (BuildConfig.FULL_EMULATOR) {
 			File dexSource = new File(appDir, Config.MIDLET_DEX_FILE);
 			File codeCacheDir = context.getCacheDir();
+			if (codeCacheDir == null) {
+				throw new IOException("DEX cache directory is unavailable");
+			}
+			File dexContainer = DexJarCache.create(dexSource, codeCacheDir);
 			File dexOptDir = new File(codeCacheDir, Config.DEX_OPT_CACHE_DIR);
 			if (dexOptDir.exists()) {
 				FileUtils.clearDirectory(dexOptDir);
 			} else if (!dexOptDir.mkdir()) {
 				throw new IOException("Can't create directory: [" + dexOptDir + ']');
 			}
-			ClassLoader loader = new AppClassLoader(dexSource.getAbsolutePath(),
+			ClassLoader loader = new AppClassLoader(dexContainer.getAbsolutePath(),
 					dexOptDir.getAbsolutePath(), context.getClassLoader(), appDir);
-			Log.i(TAG, "loadMIDletList main: " + mainClass + " from dex:" + dexSource.getPath());
+			Log.i(TAG, "loadMIDlet main: " + mainClass + " from dex cache:" + dexContainer.getPath());
 			//noinspection unchecked
 			Class<MIDlet> clazz = (Class<MIDlet>) loader.loadClass(mainClass);
 			Constructor<MIDlet> init = clazz.getDeclaredConstructor();

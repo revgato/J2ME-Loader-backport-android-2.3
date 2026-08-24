@@ -20,7 +20,6 @@ package javax.microedition.util;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.Vibrator;
 import android.view.Display;
@@ -37,14 +36,10 @@ import java.io.InputStreamReader;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Objects;
 
 import javax.microedition.lcdui.keyboard.VirtualKeyboard;
 import javax.microedition.shell.AppClassLoader;
 import javax.microedition.shell.MicroActivity;
-
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import ru.playsoftware.j2meloader.BuildConfig;
 import ru.playsoftware.j2meloader.config.Config;
@@ -72,7 +67,11 @@ public class ContextHolder {
 
 	private static Display getDisplay() {
 		if (display == null) {
-			display = ((WindowManager) Objects.requireNonNull(getAppContext().getSystemService(Context.WINDOW_SERVICE))).getDefaultDisplay();
+			WindowManager manager = (WindowManager) getAppContext().getSystemService(Context.WINDOW_SERVICE);
+			if (manager == null) {
+				throw new IllegalStateException("Window service is unavailable");
+			}
+			display = manager.getDefaultDisplay();
 		}
 		return display;
 	}
@@ -140,39 +139,11 @@ public class ContextHolder {
 	}
 
 	public static boolean requestPermission(String permission) {
-		MicroActivity context = currentActivity.get();
-		if (context == null) {
-			return false;
-		}
-		if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
-			ActivityCompat.requestPermissions(context, new String[]{permission}, 0);
-			return false;
-		} else {
-			return true;
-		}
+		// Gingerbread grants manifest permissions at install time; there is no runtime dialog.
+		return true;
 	}
 
 	public static boolean requestPermissions(String[] permissions) {
-		MicroActivity context = currentActivity.get();
-		if (context == null) {
-			return false;
-		}
-		if (!hasPermissions(context, permissions)) {
-			ActivityCompat.requestPermissions(context, permissions, 0);
-			return false;
-		} else {
-			return true;
-		}
-	}
-
-	private static boolean hasPermissions(Context context, String... permissions) {
-		if (context != null && permissions != null) {
-			for (String permission : permissions) {
-				if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
-					return false;
-				}
-			}
-		}
 		return true;
 	}
 

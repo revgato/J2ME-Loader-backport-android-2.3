@@ -18,7 +18,7 @@
 
 package javax.microedition.lcdui;
 
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 
 import javax.microedition.lcdui.event.Event;
 import javax.microedition.lcdui.event.EventQueue;

@@ -29,8 +29,6 @@ import javax.microedition.midlet.MIDlet;
 import javax.microedition.midlet.MIDletStateChangeException;
 import javax.microedition.util.ContextHolder;
 
-import androidx.annotation.NonNull;
-
 import ru.playsoftware.j2meloader.config.Config;
 
 public class MidletThread extends HandlerThread implements Handler.Callback {
@@ -122,7 +120,7 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 	}
 
 	@Override
-	public boolean handleMessage(@NonNull Message msg) {
+	public boolean handleMessage(Message msg) {
 		switch (msg.what) {
 			case INIT:
 				if (state != UNINITIALIZED) {

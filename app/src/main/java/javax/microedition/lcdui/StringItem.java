@@ -22,10 +22,8 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.URLSpan;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
-
-import androidx.appcompat.widget.AppCompatButton;
-import androidx.appcompat.widget.AppCompatTextView;
 
 import javax.microedition.lcdui.event.SimpleEvent;
 import javax.microedition.util.ContextHolder;
@@ -87,9 +85,9 @@ public class StringItem extends Item {
 			Context context = ContextHolder.getActivity();
 
 			if (appearanceMode == BUTTON) {
-				textview = new AppCompatButton(context);
+				textview = new Button(context);
 			} else {
-				textview = new AppCompatTextView(context);
+				textview = new TextView(context);
 			}
 
 			textview.setTextAppearance(context, android.R.style.TextAppearance_Small);

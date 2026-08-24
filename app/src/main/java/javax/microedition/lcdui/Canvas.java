@@ -23,7 +23,6 @@ import static android.opengl.GLES20.*;
 
 import android.annotation.SuppressLint;
 import android.graphics.Bitmap;
-import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.RectF;
@@ -46,15 +45,11 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 
-import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
@@ -75,8 +70,6 @@ import javax.microedition.lcdui.overlay.OverlayView;
 import javax.microedition.shell.MicroActivity;
 import javax.microedition.util.ContextHolder;
 
-import io.reactivex.Single;
-import io.reactivex.schedulers.Schedulers;
 import ru.playsoftware.j2meloader.R;
 import ru.playsoftware.j2meloader.config.ShaderInfo;
 
@@ -309,28 +302,6 @@ public abstract class Canvas extends Displayable {
 		if (fpsCounter != null) {
 			fpsCounter.increment();
 		}
-	}
-
-	public Single<Bitmap> getScreenShot() {
-		if (renderer != null && !screenshotRawMode) {
-			return renderer.takeScreenShot();
-		}
-		return Single.create(emitter -> {
-			Bitmap bitmap;
-			if (screenshotRawMode) {
-				synchronized (bufferLock) {
-					bitmap = Bitmap.createBitmap(offscreenCopy.getBitmap(), 0, 0,
-							offscreenCopy.getWidth(), offscreenCopy.getHeight());
-				}
-			} else {
-				bitmap = Bitmap.createBitmap(onWidth, onHeight, Bitmap.Config.ARGB_8888);
-				canvasWrapper.bind(new android.graphics.Canvas(bitmap));
-				synchronized (bufferLock) {
-					canvasWrapper.drawImage(offscreenCopy, new RectF(0, 0, onWidth, onHeight));
-				}
-			}
-			emitter.onSuccess(bitmap);
-		});
 	}
 
 	private boolean checkSizeChanged() {
@@ -861,30 +832,6 @@ public abstract class Canvas extends Displayable {
 			mView.onResume();
 		}
 
-		private Single<Bitmap> takeScreenShot() {
-			return Single.<ByteBuffer>create(emitter -> {
-						ByteBuffer buf = ByteBuffer.allocateDirect(onWidth * onHeight * 4).order(ByteOrder.nativeOrder());
-						mView.requestRender();
-						mView.queueEvent(() -> {
-							try {
-								glReadPixels(displayWidth - onWidth - onX, displayHeight - onHeight - onY, onWidth, onHeight, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-								emitter.onSuccess(buf);
-							} catch (Throwable e) {
-								emitter.onError(e);
-							}
-						});
-					}).timeout(3, TimeUnit.SECONDS)
-					.subscribeOn(Schedulers.computation())
-					.observeOn(Schedulers.computation())
-					.map(bb -> {
-						Bitmap rawBitmap = Bitmap.createBitmap(onWidth, onHeight, Bitmap.Config.ARGB_8888);
-						bb.rewind();
-						rawBitmap.copyPixelsFromBuffer(bb);
-						Matrix m = new Matrix();
-						m.setScale(1.0f, -1.0f);
-						return Bitmap.createBitmap(rawBitmap, 0, 0, onWidth, onHeight, m, false);
-					});
-		}
 	}
 
 	private class PaintEvent extends Event implements EventFilter {
@@ -1172,7 +1119,7 @@ public abstract class Canvas extends Displayable {
 		}
 
 		@Override
-		public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int newWidth, int newHeight) {
+		public void surfaceChanged(SurfaceHolder holder, int format, int newWidth, int newHeight) {
 			if (displayWidth > displayHeight) {
 				if (newWidth < newHeight) {
 					softBar.closeMenu();
@@ -1193,7 +1140,7 @@ public abstract class Canvas extends Displayable {
 		}
 
 		@Override
-		public void surfaceCreated(@NonNull SurfaceHolder holder) {
+		public void surfaceCreated(SurfaceHolder holder) {
 			if (renderer != null) {
 				renderer.start();
 			}
@@ -1213,7 +1160,7 @@ public abstract class Canvas extends Displayable {
 		}
 
 		@Override
-		public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+		public void surfaceDestroyed(SurfaceHolder holder) {
 			if (renderer != null) {
 				renderer.stop();
 			}
@@ -1271,8 +1218,8 @@ public abstract class Canvas extends Displayable {
 			this.overlayView = activity.binding.overlayView;
 			DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
 			padding = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 5, metrics);
-			textColor = ContextCompat.getColor(activity, R.color.accent);
-			bgColor = ContextCompat.getColor(activity, R.color.background);
+			textColor = activity.getResources().getColor(R.color.accent);
+			bgColor = activity.getResources().getColor(R.color.background);
 			notifyChanged();
 		}
 

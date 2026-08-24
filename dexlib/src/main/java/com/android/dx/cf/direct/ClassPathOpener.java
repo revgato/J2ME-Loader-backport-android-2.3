@@ -18,9 +18,6 @@ package com.android.dx.cf.direct;
 
 import com.android.dex.util.FileUtils;
 
-import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.model.FileHeader;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -29,6 +26,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
  * Opens all the class files found in a class path element. Path elements
@@ -237,14 +238,17 @@ public class ClassPathOpener {
      */
     private boolean processArchive(File file) throws IOException {
         ZipFile zip = new ZipFile(file);
-
-        List<FileHeader> entriesList = zip.getFileHeaders();
+        List<ZipEntry> entriesList = new ArrayList<ZipEntry>();
+        Enumeration<? extends ZipEntry> entries = zip.entries();
+        while (entries.hasMoreElements()) {
+            entriesList.add(entries.nextElement());
+        }
 
         if (sort) {
-            Collections.sort(entriesList, new Comparator<FileHeader>() {
+            Collections.sort(entriesList, new Comparator<ZipEntry>() {
                @Override
-			   public int compare (FileHeader a, FileHeader b) {
-                   return compareClassNames(a.getFileName(), b.getFileName());
+			   public int compare (ZipEntry a, ZipEntry b) {
+				   return compareClassNames(a.getName(), b.getName());
                }
             });
         }
@@ -255,10 +259,10 @@ public class ClassPathOpener {
         byte[] buf = new byte[20000];
         boolean any = false;
 
-        for (FileHeader one : entriesList) {
+        for (ZipEntry one : entriesList) {
             final boolean isDirectory = one.isDirectory();
 
-            String path = one.getFileName();
+            String path = one.getName();
             if (filter.accept(path)) {
                 final byte[] bytes;
                 if (!isDirectory) {
@@ -276,7 +280,7 @@ public class ClassPathOpener {
                     bytes = new byte[0];
                 }
 
-                any |= consumer.processFileBytes(path, one.getLastModifiedTimeEpoch(), bytes);
+                any |= consumer.processFileBytes(path, one.getTime(), bytes);
             }
         }
 

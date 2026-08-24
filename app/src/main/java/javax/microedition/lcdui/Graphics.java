@@ -191,7 +191,7 @@ public class Graphics implements
 
 	public void setClip(int x, int y, int width, int height) {
 		clip.set(x, y, x + width, y + height);
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+		if (Build.VERSION.SDK_INT >= 28) {
 			canvas.restore();
 			canvas.save();
 			canvas.translate(translateX, translateY);

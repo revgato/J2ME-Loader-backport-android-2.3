@@ -19,13 +19,8 @@ package ru.playsoftware.j2meloader.util;
 
 import android.content.Context;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
-
-import androidx.activity.result.contract.ActivityResultContract;
-
-import com.nononsenseapps.filepicker.Utils;
 
 import java.io.DataInputStream;
 import java.io.File;
@@ -104,41 +99,7 @@ public class FileUtils {
 				}
 			}
 		}
-		if ((context.getPackageName() + ".provider").equals(uri.getAuthority())) {
-			try {
-				File file = Utils.getFileForUri(uri);
-				if (file.isFile()) {
-					return file;
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-		File tmpDir = new File(context.getCacheDir(), "installer");
-		if (!tmpDir.exists() && !tmpDir.mkdirs()) {
-			throw new IOException("Can't create directory: " + tmpDir);
-		}
-		File file;
-		try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-			byte[] buf = new byte[BUFFER_SIZE];
-			int len;
-			if (in == null || (len = in.read(buf)) == -1)
-				throw new IOException("Can't read data from uri: " + uri);
-			if (buf[0] == 0x50 && buf[1] == 0x4B) {
-				file = new File(tmpDir, TEMP_JAR_NAME);
-			} else if (buf[0] == 'K' && buf[1] == 'J' && buf[2] == 'X') {
-				file = new File(tmpDir, TEMP_KJX_NAME);
-			} else {
-				file = new File(tmpDir, TEMP_JAD_NAME);
-			}
-			try (OutputStream out = new FileOutputStream(file)) {
-				out.write(buf, 0, len);
-				while ((len = in.read(buf)) > 0) {
-					out.write(buf, 0, len);
-				}
-			}
-		}
-		return file;
+		throw new IOException("Only file:// URIs are supported on the IS14SH build");
 	}
 
 	public static byte[] getBytes(File file) throws IOException {
@@ -221,14 +182,7 @@ public class FileUtils {
 	}
 
 	public static boolean isExternalStorageLegacy() {
-		return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || Environment.isExternalStorageLegacy();
+		return true;
 	}
 
-	public static ActivityResultContract<String,Uri> getFilePicker() {
-		if (isExternalStorageLegacy()) {
-			return new PickFileResultContract();
-		} else {
-			return new SAFFileResultContract();
-		}
-	}
 }

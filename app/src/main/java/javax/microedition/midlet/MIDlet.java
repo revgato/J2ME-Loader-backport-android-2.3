@@ -35,8 +35,6 @@ import javax.microedition.lcdui.Display;
 import javax.microedition.shell.MidletThread;
 import javax.microedition.util.ContextHolder;
 
-import ru.playsoftware.j2meloader.applist.AppItem;
-import ru.playsoftware.j2meloader.util.AppUtils;
 
 public abstract class MIDlet {
 	private static final String TAG = MIDlet.class.getName();
@@ -125,74 +123,7 @@ public abstract class MIDlet {
 	}
 
 	private void parseJavaAppProtocol(String url) throws ConnectionNotFoundException {
-		if (!url.contains("midlet-name") && !url.contains("midlet-uid")) {
-			throw new ConnectionNotFoundException("No midlet-name value");
-		}
-		if (url.startsWith("localapp:")) {
-			url = url.substring("localapp:".length());
-		} else if(url.startsWith("javaapp:")) {
-			url = url.substring("javaapp:".length());
-		}
-		if (url.startsWith("//")) {
-			url = url.substring(2);
-		}
-		if (url.startsWith("jam/launch?")) {
-			url = url.substring("jam/launch?".length());
-		}
-		url = URLDecoder.decode(url);
-		String name = null;
-		String vendor = null;
-		String uid = null;
-		String[] arr = url.split(";");
-
-		StringBuilder argumentsBuilder = new StringBuilder();
-		for (String s: arr) {
-			if (s.length() == 0) {
-				continue;
-			}
-			if (s.contains("=")) {
-				int i = s.indexOf('=');
-				String k = s.substring(0, i);
-				String v = s.substring(i + 1);
-				if (k.equals("midlet-name")) {
-					name = v;
-					continue;
-				}
-				if (k.equals("midlet-vendor")) {
-					vendor = v;
-					continue;
-				}
-				if (k.equals("midlet-uid")) {
-					uid = v;
-					continue;
-				}
-				if (k.equals("midlet-n")) {
-					continue;
-				}
-				if (System.getProperty(k) == null) {
-					argumentsBuilder.append(s).append(";");
-				}
-			} else {
-				if (System.getProperty(s) == null) {
-					argumentsBuilder.append(s).append(";");
-				}
-			}
-		}
-		if (name == null && uid == null) {
-			throw new ConnectionNotFoundException();
-		}
-		argumentsBuilder.deleteCharAt(argumentsBuilder.length() - 1);
-		final String arguments = argumentsBuilder.toString();
-		try {
-			final AppItem item = AppUtils.findApp(name, vendor, uid);
-			if (item == null) {
-				throw new ConnectionNotFoundException("App (" + name + ", " + vendor + ", " + uid + ") was not found!");
-			}
-			MidletThread.startAfterDestroy = new String[] { item.getTitle(), item.getPathExt(), arguments };
-		} catch (Exception e) {
-			e.printStackTrace();
-			throw new ConnectionNotFoundException(e);
-		}
+		throw new ConnectionNotFoundException("Inter-MIDlet launch is unsupported on the IS14SH build");
 	}
 
 	public final int checkPermission(String permission) {

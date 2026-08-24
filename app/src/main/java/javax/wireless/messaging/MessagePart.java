@@ -16,8 +16,6 @@
 
 package javax.wireless.messaging;
 
-import androidx.annotation.NonNull;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -118,7 +116,6 @@ public class MessagePart {
 		return super.hashCode();
 	}
 
-	@NonNull
 	public String toString() {
 		return super.toString();
 	}

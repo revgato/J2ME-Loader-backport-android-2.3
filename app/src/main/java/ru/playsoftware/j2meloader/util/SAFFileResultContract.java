@@ -20,19 +20,15 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Build;
 
 import androidx.activity.result.contract.ActivityResultContract;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-
 public class SAFFileResultContract extends ActivityResultContract<String, Uri> {
-    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @NonNull
     @Override
     public Intent createIntent(@NonNull Context context, String input) {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
         i.setType("*/*") ;
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         return i;

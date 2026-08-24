@@ -36,8 +36,6 @@ import java.util.HashMap;
 import javax.microedition.lcdui.keyboard.VirtualKeyboard;
 import javax.microedition.util.ContextHolder;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import ru.playsoftware.j2meloader.util.FileUtils;
 import ru.playsoftware.j2meloader.util.XmlUtils;
 
@@ -51,7 +49,6 @@ public class ProfilesManager {
 		return getList(root);
 	}
 
-	@NonNull
 	private static ArrayList<Profile> getList(File root) {
 		File[] dirs = root.listFiles();
 		if (dirs == null) {
@@ -107,7 +104,6 @@ public class ProfilesManager {
 		}
 	}
 
-	@Nullable
 	public static ProfileModel loadConfig(File dir) {
 		File file = new File(dir, Config.MIDLET_CONFIG_FILE);
 		ProfileModel params = null;
@@ -145,7 +141,7 @@ public class ProfilesManager {
 		switch (params.version) {
 			case 0:
 				if (params.hwAcceleration) {
-					params.graphicsMode = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ? 2 : 3;
+					params.graphicsMode = Build.VERSION.SDK_INT < 23 ? 2 : 3;
 				}
 				updateSystemProperties(params);
 			case 1:

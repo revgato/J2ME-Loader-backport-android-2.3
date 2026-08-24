@@ -18,7 +18,6 @@ package javax.microedition.lcdui;
 
 import android.text.TextUtils;
 
-import androidx.annotation.NonNull;
 
 public class Command implements Comparable<Command> {
 	public static final int SCREEN = 1;
@@ -120,7 +119,6 @@ public class Command implements Comparable<Command> {
 		return priority - cmd.priority;
 	}
 
-	@NonNull
 	@Override
 	public String toString() {
 		return TextUtils.isEmpty(longLabel) ? getAndroidLabel() : longLabel;

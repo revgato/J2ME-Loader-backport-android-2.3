@@ -1,91 +1,63 @@
-/*
- * Copyright 2018 Nikita Shakarun
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
+/* Copyright 2026 J2ME-Loader contributors. Licensed under the Apache License, Version 2.0. */
 package javax.microedition.media;
 
-import org.billthefarmer.mididriver.MidiConstants;
-import org.billthefarmer.mididriver.MidiDriver;
+import android.media.MediaPlayer;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 
 import javax.microedition.media.control.MIDIControl;
+import javax.microedition.util.ContextHolder;
 
+/** MIDIControl backed by Android's API 10 MediaPlayer, not the removed native MidiDriver. */
 public class MidiPlayer extends BasePlayer implements MIDIControl {
+    private MediaPlayer player;
+    private File midiFile;
 
-	private final MidiDriver midiDriver = MidiInterface.getDriver();
+    public MidiPlayer() {
+        addControl(MIDIControl.class.getName(), this);
+    }
 
-	public MidiPlayer() {
-		addControl(MIDIControl.class.getName(), this);
-	}
+    @Override public int[] getBankList(boolean custom) { return new int[0]; }
+    @Override public int getChannelVolume(int channel) { return -1; }
+    @Override public String getKeyName(int bank, int prog, int key) { return null; }
+    @Override public int[] getProgram(int channel) { return new int[0]; }
+    @Override public int[] getProgramList(int bank) { return new int[0]; }
+    @Override public String getProgramName(int bank, int prog) { return ""; }
+    @Override public boolean isBankQuerySupported() { return false; }
 
-	@Override
-	public int[] getBankList(boolean custom) {
-		return new int[0];
-	}
+    @Override
+    public int longMidiEvent(byte[] data, int offset, int length) {
+        if (data == null || offset < 0 || length < 0 || offset > data.length - length) return -1;
+        try {
+            play(data, offset, length);
+            return length;
+        } catch (IOException e) {
+            return -1;
+        }
+    }
 
-	@Override
-	public int getChannelVolume(int channel) {
-		return -1;
-	}
+    @Override public void setChannelVolume(int channel, int volume) { }
+    @Override public void setProgram(int channel, int bank, int program) { }
+    @Override public void shortMidiEvent(int type, int data1, int data2) { }
 
-	@Override
-	public String getKeyName(int bank, int prog, int key) {
-		return null;
-	}
+    private void play(byte[] data, int offset, int length) throws IOException {
+        closePlayer();
+        midiFile = File.createTempFile("j2me-midi", ".mid", ContextHolder.getCacheDir());
+        FileOutputStream output = new FileOutputStream(midiFile);
+        try { output.write(data, offset, length); } finally { output.close(); }
+        player = new MediaPlayer();
+        player.setDataSource(midiFile.getAbsolutePath());
+        player.prepare();
+        player.start();
+    }
 
-	@Override
-	public int[] getProgram(int channel) {
-		return new int[0];
-	}
+    @Override public void doStop() { if (player != null) player.pause(); }
+    @Override public void doClose() { closePlayer(); }
 
-	@Override
-	public int[] getProgramList(int bank) {
-		return new int[0];
-	}
-
-	@Override
-	public String getProgramName(int bank, int prog) {
-		return "";
-	}
-
-	@Override
-	public boolean isBankQuerySupported() {
-		return false;
-	}
-
-	@Override
-	public int longMidiEvent(byte[] data, int offset, int length) {
-		if (midiDriver.write(data)) {
-			return data.length;
-		} else {
-			return -1;
-		}
-	}
-
-	@Override
-	public void setChannelVolume(int channel, int volume) {
-	}
-
-	@Override
-	public void setProgram(int channel, int bank, int program) {
-		byte[] event = new byte[]{(byte) (MidiConstants.PROGRAM_CHANGE | channel), (byte) program};
-		midiDriver.write(event);
-	}
-
-	@Override
-	public void shortMidiEvent(int type, int data1, int data2) {
-		byte[] event = new byte[]{(byte) type, (byte) data1, (byte) data2};
-		midiDriver.write(event);
-	}
+    private void closePlayer() {
+        if (player != null) { player.release(); player = null; }
+        if (midiFile != null) { midiFile.delete(); midiFile = null; }
+    }
 }

@@ -17,8 +17,6 @@
 
 package javax.microedition.media;
 
-import android.Manifest;
-import android.os.Build;
 import android.webkit.MimeTypeMap;
 
 import java.io.IOException;
@@ -30,15 +28,13 @@ import javax.microedition.media.protocol.DataSource;
 import javax.microedition.media.protocol.SourceStream;
 import javax.microedition.media.tone.ToneManager;
 import javax.microedition.util.ContextHolder;
+import ru.playsoftware.j2meloader.legacy.LegacyCapabilities;
 
 public class Manager {
 	public static final String TONE_DEVICE_LOCATOR = "device://tone";
 	public static final String MIDI_DEVICE_LOCATOR = "device://midi";
 
 	private static final String FILE_LOCATOR = "file://";
-	private static final String CAPTURE_AUDIO_LOCATOR = "capture://audio";
-	private static final String CAPTURE_VIDEO_LOCATOR = "capture://video";
-	private static final String CAPTURE_IMAGE_LOCATOR = "capture://image";
 	private static final TimeBase DEFAULT_TIMEBASE = () -> System.nanoTime() / 1000L;
 
 	public static Player createPlayer(String locator) throws IOException {
@@ -54,15 +50,10 @@ public class Manager {
 			String extension = locator.substring(locator.lastIndexOf('.') + 1);
 			String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
 			return createPlayer(stream, type);
-		} else if (locator.startsWith(CAPTURE_AUDIO_LOCATOR) &&
-				ContextHolder.requestPermission(Manifest.permission.RECORD_AUDIO)) {
-			return new RecordPlayer();
-		} else if ((locator.startsWith(CAPTURE_IMAGE_LOCATOR) || locator.startsWith(CAPTURE_VIDEO_LOCATOR)) &&
-				ContextHolder.requestPermission(Manifest.permission.CAMERA) &&
-				Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-			return new CameraPlayer();
+		} else if (locator.startsWith("capture://")) {
+			throw new UnsupportedOperationException("Capture is unsupported on the IS14SH legacy build");
 		} else {
-			return new BasePlayer();
+			throw new UnsupportedOperationException("Unsupported media locator: " + locator);
 		}
 	}
 
@@ -82,7 +73,7 @@ public class Manager {
 			InputStream stream = new InternalSourceStream(sourceStream);
 			return new MicroPlayer(new InternalDataSource(stream, type));
 		} else {
-			return new BasePlayer();
+			throw LegacyCapabilities.unsupported(type == null ? "unknown media type" : type);
 		}
 	}
 
@@ -94,18 +85,16 @@ public class Manager {
 		if (type != null && Arrays.asList(supportedTypes).contains(type.toLowerCase())) {
 			return new MicroPlayer(new InternalDataSource(stream, type));
 		} else {
-			return new BasePlayer();
+			throw LegacyCapabilities.unsupported(type == null ? "unknown media type" : type);
 		}
 	}
 
 	public static String[] getSupportedContentTypes(String str) {
-		return new String[]{"audio/wav", "audio/x-wav", "audio/midi", "audio/x-midi",
-				"audio/mpeg", "audio/aac", "audio/amr", "audio/amr-wb", "audio/mp3",
-				"audio/mp4", "audio/mmf", "audio/x-tone-seq"};
+		return LegacyCapabilities.getSupportedContentTypes();
 	}
 
 	public static String[] getSupportedProtocols(String str) {
-		return new String[]{"device", "file", "http"};
+		return new String[]{"device", "file"};
 	}
 
 	public static TimeBase getSystemTimeBase() {

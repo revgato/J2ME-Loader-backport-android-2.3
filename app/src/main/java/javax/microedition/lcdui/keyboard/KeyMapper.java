@@ -18,12 +18,14 @@
 package javax.microedition.lcdui.keyboard;
 
 import android.util.SparseIntArray;
+import android.util.SparseArray;
+import android.os.Build;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 
-import androidx.collection.SparseArrayCompat;
 
 import ru.playsoftware.j2meloader.config.ProfileModel;
+import ru.playsoftware.j2meloader.legacy.Is14shKeyProfile;
 
 import static javax.microedition.lcdui.Canvas.*;
 
@@ -51,7 +53,7 @@ public class KeyMapper {
 	private static final int MOTOROLA_KEY_SOFT_LEFT = -21;
 	private static final int MOTOROLA_KEY_SOFT_RIGHT = -22;
 
-	private static final SparseArrayCompat<String> keyCodeToKeyName = new SparseArrayCompat<>();
+	private static final SparseArray<String> keyCodeToKeyName = new SparseArray<String>();
 	private static final SparseIntArray keyCodeToCustom = new SparseIntArray();
 	private static final SparseIntArray keyCodeToGameAction = new SparseIntArray();
 	private static final SparseIntArray gameActionToKeyCode = new SparseIntArray();
@@ -168,6 +170,11 @@ public class KeyMapper {
 	public static void setKeyMapping(ProfileModel params) {
 		layoutType = params.keyCodesLayout;
 		SparseIntArray map = getDefaultKeyMap();
+		if (Is14shKeyProfile.matchesDevice(Build.MODEL, Build.DEVICE)) {
+			map.put(Is14shKeyProfile.KEYCODE_ENVELOPE, KEY_SOFT_LEFT);
+			map.put(Is14shKeyProfile.KEYCODE_EXPLORER, KEY_SOFT_RIGHT);
+			map.put(Is14shKeyProfile.KEYCODE_ENTER, KEY_FIRE);
+		}
 		SparseIntArray customKeyMap = params.keyMappings;
 		if (customKeyMap != null) {
 			for (int i = 0, size = customKeyMap.size(); i < size; i++) {

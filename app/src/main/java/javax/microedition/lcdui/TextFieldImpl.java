@@ -26,10 +26,9 @@ import android.text.TextWatcher;
 import android.text.method.PasswordTransformationMethod;
 import android.view.Gravity;
 import android.view.ViewGroup.LayoutParams;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 
-import androidx.appcompat.widget.AppCompatEditText;
+import android.widget.EditText;
 
 import javax.microedition.lcdui.event.SimpleEvent;
 
@@ -174,7 +173,7 @@ class TextFieldImpl {
 
 	EditText getView(Context context, Item item) {
 		if (textview == null) {
-			textview = new AppCompatEditText(context);
+			textview = new EditText(context);
 
 			setMaxSize(maxSize);
 			setConstraints(constraints);

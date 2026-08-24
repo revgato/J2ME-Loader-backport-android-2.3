@@ -40,7 +40,7 @@ public class AndroidMethodVisitor extends MethodVisitor {
 	private final ArrayList<Label> exceptionHandlers = new ArrayList<>();
 
 	public AndroidMethodVisitor(MethodVisitor methodVisitor) {
-		super(ASM9, methodVisitor);
+		super(ASM5, methodVisitor);
 	}
 
 	@Override

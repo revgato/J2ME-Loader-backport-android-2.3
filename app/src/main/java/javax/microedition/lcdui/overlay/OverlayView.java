@@ -32,6 +32,10 @@ public class OverlayView extends View {
 	private int x;
 	private int y;
 
+	public OverlayView(Context context) {
+		this(context, null);
+	}
+
 	public OverlayView(Context context, AttributeSet attrs) {
 		super(context, attrs);
 		if (isInEditMode()) { // fix for IDE preview

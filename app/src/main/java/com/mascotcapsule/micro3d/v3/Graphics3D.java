@@ -16,13 +16,7 @@
 
 package com.mascotcapsule.micro3d.v3;
 
-import android.widget.Toast;
-
-import androidx.preference.PreferenceManager;
-
 import javax.microedition.lcdui.Graphics;
-import javax.microedition.lcdui.ViewHandler;
-import javax.microedition.util.ContextHolder;
 
 @SuppressWarnings("unused, WeakerAccess")
 public class Graphics3D {
@@ -81,6 +75,7 @@ public class Graphics3D {
 	private Render render;
 
 	public Graphics3D() {
+		throw new UnsupportedOperationException("Mascot Capsule 3D is unsupported on the IS14SH legacy build");
 	}
 
 	public final synchronized void bind(Graphics graphics) {
@@ -197,12 +192,4 @@ public class Graphics3D {
 		}
 	}
 
-	static {
-		if (PreferenceManager.getDefaultSharedPreferences(ContextHolder.getAppContext()).getBoolean("micro3d_using_message", false)) {
-			ViewHandler.postEvent(
-					() -> Toast.makeText(ContextHolder.getAppContext(),
-							"Mascot Capsule 3D!",
-							Toast.LENGTH_LONG).show());
-		}
-	}
 }

@@ -22,10 +22,6 @@ import android.util.Log;
 
 import com.android.dx.command.dexer.Main;
 
-import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.io.inputstream.ZipInputStream;
-import net.lingala.zip4j.model.FileHeader;
-
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.File;
@@ -41,12 +37,15 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.jar.JarFile;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import io.reactivex.Single;
 import io.reactivex.SingleEmitter;
 import ru.playsoftware.j2meloader.applist.AppItem;
 import ru.playsoftware.j2meloader.appsdb.AppRepository;
 import ru.playsoftware.j2meloader.config.Config;
+import ru.playsoftware.j2meloader.legacy.LegacyArchiveValidator;
 import ru.playsoftware.j2meloader.util.ConverterException;
 import ru.playsoftware.j2meloader.util.FileUtils;
 import ru.playsoftware.j2meloader.util.ZipUtils;
@@ -117,14 +116,16 @@ public class AppInstaller {
 			return;
 		}
 		boolean isLocal;
-		boolean isContentUri = uri.getScheme().equals("content");
-		if ("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())) {
-			downloadJad();
-			isLocal = false;
-		} else {
-			srcFile = FileUtils.getFileForUri(context, uri);
-			isLocal = true;
+		String sourceScheme = uri == null ? null : uri.getScheme();
+		if ("http".equalsIgnoreCase(sourceScheme) || "https".equalsIgnoreCase(sourceScheme)) {
+			throw new ConverterException("Network installer is disabled on the IS14SH build");
 		}
+		if (sourceScheme != null && !"file".equalsIgnoreCase(sourceScheme)) {
+			throw new ConverterException("Only local file URIs are supported on the IS14SH build");
+		}
+		srcFile = FileUtils.getFileForUri(context, uri);
+		isLocal = true;
+		boolean isContentUri = false;
 
 		String name = srcFile.getName();
 
@@ -222,53 +223,7 @@ public class AppInstaller {
 	}
 
 	private void downloadJad() throws ConverterException {
-		if (!cacheDir.exists() && !cacheDir.mkdirs()) {
-			throw new ConverterException("Can't create cache dir");
-		}
-		srcFile = new File(cacheDir, "tmp.jad");
-		String url = uri.toString();
-		Log.d(TAG, "Downloading " + url);
-		Exception exception;
-		HttpURLConnection connection = null;
-		try {
-			connection = (HttpURLConnection) new URL(url).openConnection();
-			connection.setInstanceFollowRedirects(true);
-			connection.setReadTimeout(3 * 60 * 1000);
-			connection.setConnectTimeout(15000);
-			int code = connection.getResponseCode();
-			if (code == HttpURLConnection.HTTP_MOVED_PERM
-					|| code == HttpURLConnection.HTTP_MOVED_TEMP) {
-				String urlStr = connection.getHeaderField("Location");
-				connection.disconnect();
-				connection = (HttpURLConnection) new URL(urlStr).openConnection();
-				connection.setInstanceFollowRedirects(true);
-				connection.setReadTimeout(3 * 60 * 1000);
-				connection.setConnectTimeout(15000);
-			}
-			try (InputStream inputStream = connection.getInputStream();
-				 OutputStream outputStream = new FileOutputStream(srcFile)) {
-				byte[] buffer = new byte[2048];
-				int length;
-				while ((length = inputStream.read(buffer)) > 0) {
-					outputStream.write(buffer, 0, length);
-				}
-			}
-			connection.disconnect();
-			Log.d(TAG, "Download complete");
-			return;
-		} catch (MalformedURLException e) {
-			exception = e;
-		} catch (FileNotFoundException e) {
-			exception = e;
-		} catch (IOException e) {
-			exception = e;
-		} finally {
-			if (connection != null) {
-				connection.disconnect();
-			}
-		}
-		deleteTemp();
-		throw new ConverterException("Can't download jad", exception);
+		throw new ConverterException("Network installer is disabled on the IS14SH build");
 	}
 
 	/** Install app */
@@ -289,7 +244,7 @@ public class AppInstaller {
 			}
 		}
 		try {
-			Main.main(new String[]{"--no-optimize", "--core-library",
+			Main.main(new String[]{"--no-optimize", "--core-library", "--min-sdk-version=10",
 					"--output=" + tmpDir + Config.MIDLET_DEX_FILE,
 					srcJar.getAbsolutePath()});
 		} catch (Throwable e) {
@@ -353,10 +308,11 @@ public class AppInstaller {
 	}
 
 	private Descriptor loadManifest(File jar) throws IOException {
+		LegacyArchiveValidator.validate(jar);
 		ZipFile zip = new ZipFile(jar);
-		FileHeader manifest = zip.getFileHeader(JarFile.MANIFEST_NAME);
+		ZipEntry manifest = zip.getEntry(JarFile.MANIFEST_NAME);
 		if (manifest == null) throw new IOException("JAR not have " + JarFile.MANIFEST_NAME);
-		try (ZipInputStream is = zip.getInputStream(manifest)) {
+		try (InputStream is = zip.getInputStream(manifest)) {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream(20480);
 			byte[] buf = new byte[4096];
 			int read;
@@ -364,6 +320,8 @@ public class AppInstaller {
 				baos.write(buf, 0, read);
 			}
 			return new Descriptor(baos.toString(), false);
+		} finally {
+			zip.close();
 		}
 	}
 
@@ -409,64 +367,7 @@ public class AppInstaller {
 	}
 
 	private void downloadJar() throws ConverterException {
-		Uri jarUri = Uri.parse(newDesc.getJarUrl());
-		if (jarUri.getScheme() == null) {
-			String schemeOfJadSource = this.uri.getScheme();
-			if ("http".equals(schemeOfJadSource) || "https".equals(schemeOfJadSource)) {
-				List<String> pathSegments = uri.getPathSegments();
-				StringBuilder path = new StringBuilder(pathSegments.get(0));
-				for (int i = 1; i < pathSegments.size() - 1; i++) {
-					path.append('/').append(pathSegments.get(i));
-				}
-				path.append('/').append(jarUri.getPath());
-				jarUri = uri.buildUpon().path(path.toString()).build();
-			} else {
-				jarUri = jarUri.buildUpon().scheme("http").build();
-			}
-		}
-		String url = jarUri.toString();
-		Log.d(TAG, "Downloading " + url);
-		Exception exception;
-		HttpURLConnection connection = null;
-		try {
-			connection = (HttpURLConnection) new URL(url).openConnection();
-			connection.setInstanceFollowRedirects(true);
-			connection.setReadTimeout(3 * 60 * 1000);
-			connection.setConnectTimeout(15000);
-			int code = connection.getResponseCode();
-			if (code == HttpURLConnection.HTTP_MOVED_PERM
-					|| code == HttpURLConnection.HTTP_MOVED_TEMP) {
-				String urlStr = connection.getHeaderField("Location");
-				connection.disconnect();
-				connection = (HttpURLConnection) new URL(urlStr).openConnection();
-				connection.setInstanceFollowRedirects(true);
-				connection.setReadTimeout(3 * 60 * 1000);
-				connection.setConnectTimeout(15000);
-			}
-			try (InputStream inputStream = connection.getInputStream();
-				 OutputStream outputStream = new FileOutputStream(srcJar)) {
-				byte[] buffer = new byte[2048];
-				int length;
-				while ((length = inputStream.read(buffer)) > 0) {
-					outputStream.write(buffer, 0, length);
-				}
-			}
-			connection.disconnect();
-			Log.d(TAG, "Download complete");
-			return;
-		} catch (MalformedURLException e) {
-			exception = e;
-		} catch (FileNotFoundException e) {
-			exception = e;
-		} catch (IOException e) {
-			exception = e;
-		} finally {
-			if (connection != null) {
-				connection.disconnect();
-			}
-		}
-		deleteTemp();
-		throw new ConverterException("Can't download jar", exception);
+		throw new ConverterException("Network installer is disabled on the IS14SH build");
 	}
 
 	void deleteTemp() {

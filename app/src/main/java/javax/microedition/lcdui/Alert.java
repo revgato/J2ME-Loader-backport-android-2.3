@@ -23,7 +23,7 @@ import android.content.DialogInterface;
 import android.graphics.drawable.BitmapDrawable;
 import android.view.View;
 
-import androidx.appcompat.app.AlertDialog;
+import android.app.AlertDialog;
 
 import java.util.Arrays;
 
@@ -73,10 +73,8 @@ public class Alert extends Screen implements DialogInterface.OnClickListener {
 		public void process() {
 			if (listener == DEFAULT_LISTENER) {
 				alertDialog.setCancelable(true);
-				alertDialog.setCanceledOnTouchOutside(true);
 				return;
 			}
-			alertDialog.setCanceledOnTouchOutside(countCommands() == 1 && getCommands()[0] == DISMISS_COMMAND);
 		}
 	};
 
@@ -221,9 +219,7 @@ public class Alert extends Screen implements DialogInterface.OnClickListener {
 		alertDialog = builder.create();
 		if (listener == DEFAULT_LISTENER) {
 			alertDialog.setCancelable(true);
-			alertDialog.setCanceledOnTouchOutside(true);
 		} else {
-			alertDialog.setCanceledOnTouchOutside(commands.length == 1 && commands[0] == DISMISS_COMMAND);
 		}
 		return alertDialog;
 	}

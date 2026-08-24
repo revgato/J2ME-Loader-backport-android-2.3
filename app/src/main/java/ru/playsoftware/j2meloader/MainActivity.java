@@ -33,7 +33,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.preference.PreferenceManager;
 
-import com.nononsenseapps.filepicker.Utils;
 
 import java.io.File;
 import java.util.Map;
@@ -153,7 +152,7 @@ public class MainActivity extends BaseActivity {
 			checkAndCreateDirs();
 			return;
 		}
-		File file = Utils.getFileForUri(uri);
+		File file = uri == null || uri.getPath() == null ? null : new File(uri.getPath());
 		applyWorkDir(file);
 	}
 

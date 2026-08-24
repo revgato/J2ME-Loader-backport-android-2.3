@@ -25,20 +25,13 @@ import androidx.activity.result.contract.ActivityResultContract;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.nononsenseapps.filepicker.FilePickerActivity;
-
-import ru.playsoftware.j2meloader.filepicker.FilteredFilePickerActivity;
-
 public class PickFileResultContract extends ActivityResultContract<String, Uri> {
 	@NonNull
 	@Override
 	public Intent createIntent(@NonNull Context context, String input) {
-		Intent i = new Intent(context, FilteredFilePickerActivity.class);
-		i.putExtra(FilePickerActivity.EXTRA_ALLOW_MULTIPLE, false);
-		i.putExtra(FilePickerActivity.EXTRA_SINGLE_CLICK, true);
-		i.putExtra(FilePickerActivity.EXTRA_ALLOW_CREATE_DIR, false);
-		i.putExtra(FilePickerActivity.EXTRA_MODE, FilePickerActivity.MODE_FILE);
-		i.putExtra(FilePickerActivity.EXTRA_START_PATH, input);
+		Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+		i.setType("application/java-archive");
+		i.addCategory(Intent.CATEGORY_OPENABLE);
 		return i;
 	}
 

@@ -25,22 +25,15 @@ import androidx.activity.result.contract.ActivityResultContract;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.nononsenseapps.filepicker.FilePickerActivity;
-
 import ru.playsoftware.j2meloader.config.Config;
-import ru.playsoftware.j2meloader.filepicker.FilteredFilePickerActivity;
 
 public class PickDirResultContract extends ActivityResultContract<String, Uri> {
 	@NonNull
 	@Override
 	public Intent createIntent(@NonNull Context context, String input) {
-		Intent i = new Intent(context, FilteredFilePickerActivity.class);
-		i.putExtra(FilePickerActivity.EXTRA_ALLOW_MULTIPLE, false);
-		i.putExtra(FilePickerActivity.EXTRA_SINGLE_CLICK, false);
-		i.putExtra(FilePickerActivity.EXTRA_ALLOW_CREATE_DIR, true);
-		i.putExtra(FilePickerActivity.EXTRA_MODE, FilePickerActivity.MODE_DIR);
-		String startPath = input == null ? Config.getEmulatorDir() : input;
-		i.putExtra(FilePickerActivity.EXTRA_START_PATH, startPath);
+		Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+		i.setType("*/*");
+		i.addCategory(Intent.CATEGORY_OPENABLE);
 		return i;
 	}
 

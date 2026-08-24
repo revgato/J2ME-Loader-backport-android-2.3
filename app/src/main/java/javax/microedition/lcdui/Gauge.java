@@ -21,8 +21,6 @@ import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 
-import androidx.appcompat.widget.AppCompatSeekBar;
-
 import javax.microedition.util.ContextHolder;
 
 public class Gauge extends Item {
@@ -108,7 +106,7 @@ public class Gauge extends Item {
 		if (pbar == null) {
 			Context activity = ContextHolder.getActivity();
 			if (interactive) {
-				pbar = new AppCompatSeekBar(activity);
+				pbar = new SeekBar(activity);
 				((SeekBar) pbar).setOnSeekBarChangeListener(listener);
 			} else {
 				pbar = new ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal);

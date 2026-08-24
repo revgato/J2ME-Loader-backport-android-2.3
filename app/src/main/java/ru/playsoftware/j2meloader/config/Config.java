@@ -28,8 +28,6 @@ import java.io.File;
 import javax.microedition.shell.MicroActivity;
 import javax.microedition.util.ContextHolder;
 
-import androidx.preference.PreferenceManager;
-
 import ru.playsoftware.j2meloader.BuildConfig;
 import ru.playsoftware.j2meloader.R;
 
@@ -68,15 +66,11 @@ public class Config {
 	static {
 		Context context = ContextHolder.getAppContext();
 		String appName = "J2ME-Loader";
-		if (!BuildConfig.FULL_EMULATOR) {
-			appName = context.getString(R.string.app_name);
-		}
+		if (!BuildConfig.FULL_EMULATOR) appName = context.getString(R.string.app_name);
 		SCREENSHOTS_DIR = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
 				+ "/" + appName;
-		SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(context);
-		String path = FileUtils.isExternalStorageLegacy() ?
-				preferences.getString(PREF_EMULATOR_DIR, null) :
-				context.getExternalFilesDir(null).getPath();
+		SharedPreferences preferences = context.getSharedPreferences("legacy-preferences", Context.MODE_PRIVATE);
+		String path = preferences.getString(PREF_EMULATOR_DIR, null);
 		if (path == null) {
 			path = Environment.getExternalStorageDirectory() + "/" + appName;
 		}
@@ -125,22 +119,13 @@ public class Config {
 	}
 
 	public static void startApp(Context context, String name, String path, boolean showSettings, String arguments) {
-		File appDir = new File(path);
-		String workDir = appDir.getParentFile().getParent();
-		File file = new File(workDir + Config.MIDLET_CONFIGS_DIR + appDir.getName());
-		if (showSettings || !file.exists()) {
-			Intent intent = new Intent(ACTION_EDIT, Uri.parse(path),
-					context, ConfigActivity.class);
-			intent.putExtra(KEY_MIDLET_NAME, name);
-			intent.putExtra(KEY_START_ARGUMENTS, arguments);
-			context.startActivity(intent);
-		} else {
-			Intent intent = new Intent(Intent.ACTION_DEFAULT, Uri.parse(path),
-					context, MicroActivity.class);
-			intent.putExtra(KEY_MIDLET_NAME, name);
-			intent.putExtra(KEY_START_ARGUMENTS, arguments);
-			context.startActivity(intent);
-		}
+		// The legacy shell has no settings Activity; configuration is read from the
+		// existing configs/<game> directory and the MIDlet always starts in-process.
+		Intent intent = new Intent(context, MicroActivity.class);
+		intent.setData(Uri.fromFile(new File(path)));
+		intent.putExtra(KEY_MIDLET_NAME, name);
+		intent.putExtra(KEY_START_ARGUMENTS, arguments);
+		context.startActivity(intent);
 	}
 
 	private static void initDirs(String path) {

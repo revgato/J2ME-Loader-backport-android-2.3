@@ -25,6 +25,6 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'net.lingala.zip4j:zip4j:2.10.0'
-    implementation 'org.ow2.asm:asm:9.8'
+    // The converter is the only runtime dependency in the legacy build.
+    implementation 'org.ow2.asm:asm:5.2'
 }

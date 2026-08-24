@@ -25,8 +25,6 @@ import android.view.ViewGroup.LayoutParams;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import androidx.appcompat.widget.AppCompatTextView;
-
 import java.util.ArrayList;
 
 import javax.microedition.lcdui.event.CommandActionEvent;
@@ -174,7 +172,7 @@ public abstract class Item implements View.OnCreateContextMenuListener {
 			layout = new LinearLayout(context);
 			layout.setOrientation(LinearLayout.VERTICAL);
 
-			labelview = new AppCompatTextView(context);
+			labelview = new TextView(context);
 			labelview.setTextAppearance(context, android.R.style.TextAppearance_Medium);
 			labelview.setText(label);
 

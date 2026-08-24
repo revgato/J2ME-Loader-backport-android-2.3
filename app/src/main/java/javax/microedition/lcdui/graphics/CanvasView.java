@@ -25,8 +25,6 @@ import android.view.inputmethod.InputConnection;
 import javax.microedition.lcdui.Canvas;
 import javax.microedition.lcdui.keyboard.DelKeyWorkaround;
 
-import androidx.annotation.NonNull;
-
 public class CanvasView extends SurfaceView {
 	private InputConnection mPublicInputConnection;
 
@@ -38,7 +36,7 @@ public class CanvasView extends SurfaceView {
 	}
 
 	@Override
-	protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
+	protected void onVisibilityChanged(View changedView, int visibility) {
 		super.onVisibilityChanged(changedView, visibility);
 		// Fix keyboard issue on Blackberry
 		if (visibility == VISIBLE) {

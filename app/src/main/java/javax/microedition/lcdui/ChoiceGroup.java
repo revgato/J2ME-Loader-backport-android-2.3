@@ -29,10 +29,6 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
 
-import androidx.appcompat.widget.AppCompatCheckBox;
-import androidx.appcompat.widget.AppCompatRadioButton;
-import androidx.appcompat.widget.AppCompatSpinner;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -472,7 +468,7 @@ public class ChoiceGroup extends Item implements Choice {
 				if (spinner == null) {
 					adapter = new CompoundSpinnerAdapter();
 
-					spinner = new AppCompatSpinner(context);
+					spinner = new Spinner(context);
 					spinner.setAdapter(adapter);
 
 					int size = selected.size();
@@ -560,11 +556,11 @@ public class ChoiceGroup extends Item implements Choice {
 
 		if (buttongroup instanceof RadioGroup) {
 			for (int i = 0; i < size; i++) {
-				addButton(new AppCompatRadioButton(context), i, strings.get(i), images.get(i), selected.get(i));
+				addButton(new RadioButton(context), i, strings.get(i), images.get(i), selected.get(i));
 			}
 		} else {
 			for (int i = 0; i < size; i++) {
-				addButton(new AppCompatCheckBox(context), i, strings.get(i), images.get(i), selected.get(i));
+				addButton(new CheckBox(context), i, strings.get(i), images.get(i), selected.get(i));
 			}
 		}
 	}

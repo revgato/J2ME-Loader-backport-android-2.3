@@ -931,7 +931,7 @@ public class Main {
         public boolean keepClassesInJar = false;
 
         /** what API level to target */
-        public int minSdkVersion = DexFormat.API_NO_EXTENDED_OPCODES;
+        public int minSdkVersion = 10;
 
         /** how much source position info to preserve */
         public int positionInfo = PositionList.LINES;

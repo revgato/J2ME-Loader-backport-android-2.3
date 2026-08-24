@@ -154,7 +154,5 @@ class Utils {
 								 FloatBuffer srcNormals, FloatBuffer dstNormals,
 								 ByteBuffer boneMatrices, float[] actionMatrices);
 
-	static {
-		System.loadLibrary("micro3d");
-	}
+	// Mascot Capsule 3D is outside the legacy MVP; do not attempt native loading.
 }

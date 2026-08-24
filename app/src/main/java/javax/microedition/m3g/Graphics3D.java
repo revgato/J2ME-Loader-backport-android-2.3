@@ -101,11 +101,7 @@ public class Graphics3D {
 	// Constructor(s)
 	//------------------------------------------------------------------
 	public static final Graphics3D getInstance() {
-
-		if (s_instance == null) {
-			s_instance = new Graphics3D();
-		}
-		return s_instance;
+		throw new UnsupportedOperationException("M3G is unsupported on the IS14SH legacy build");
 	}
 
 	public static void initGraphics3D() {

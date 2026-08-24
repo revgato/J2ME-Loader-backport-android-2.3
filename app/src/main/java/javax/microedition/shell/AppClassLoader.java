@@ -19,15 +19,13 @@ package javax.microedition.shell;
 
 import android.util.Log;
 
-import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.exception.ZipException;
-import net.lingala.zip4j.model.FileHeader;
-
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import dalvik.system.DexClassLoader;
 import ru.playsoftware.j2meloader.BuildConfig;
@@ -51,7 +49,14 @@ public class AppClassLoader extends DexClassLoader {
 		instance = this;
 		setDataDir(appDir);
 		File jar = new File(appDir, Config.MIDLET_RES_FILE);
-		zipFile = jar.exists() ? new ZipFile(jar) : null;
+		if (jar.exists()) {
+			try {
+				zipFile = new ZipFile(jar);
+			} catch (IOException e) {
+				Log.e(TAG, "Unable to open resource JAR", e);
+				zipFile = null;
+			}
+		}
 	}
 
 	public static void setDataDir(File appDir) {
@@ -138,7 +143,7 @@ public class AppClassLoader extends DexClassLoader {
 		}
 		DataInputStream dis = null;
 		try {
-			FileHeader header = zipFile.getFileHeader(name);
+			ZipEntry header = zipFile.getEntry(name);
 			if (header == null) {
 				return null;
 			}

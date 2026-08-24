@@ -39,7 +39,9 @@ public class DexOptions {
     public boolean ALIGN_64BIT_REGS_IN_OUTPUT_FINISHER = ALIGN_64BIT_REGS_SUPPORT;
 
     /** minimum SDK version targeted */
-    public int minSdkVersion = DexFormat.API_NO_EXTENDED_OPCODES;
+    // Gingerbread/API 10 still loads the legacy 035 format. Keep this default below
+    // API 13 so callers that omit the flag cannot accidentally emit newer opcodes.
+    public int minSdkVersion = 10;
 
     /** force generation of jumbo opcodes */
     public boolean forceJumbo = false;

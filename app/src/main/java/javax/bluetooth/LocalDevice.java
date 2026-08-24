@@ -16,11 +16,8 @@
 
 package javax.bluetooth;
 
-import android.Manifest;
-import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
-import android.os.Build;
 
 import java.util.Hashtable;
 
@@ -51,36 +48,7 @@ public class LocalDevice implements ActivityResultListener {
 	}
 
 	private LocalDevice() throws BluetoothStateException {
-		agent = new DiscoveryAgent();
-		ContextHolder.addActivityResultListener(this);
-		boolean permissionsGranted;
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-			String[] permissions = {
-					Manifest.permission.BLUETOOTH_CONNECT,
-					Manifest.permission.BLUETOOTH_SCAN,
-					Manifest.permission.BLUETOOTH_ADVERTISE,
-			};
-			permissionsGranted = ContextHolder.requestPermissions(permissions);
-		} else {
-			permissionsGranted = ContextHolder.requestPermission(Manifest.permission.ACCESS_FINE_LOCATION);
-		}
-		if (!permissionsGranted) {
-			throw new BluetoothStateException();
-		}
-		if (!DiscoveryAgent.adapter.isEnabled()) {
-			Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-			ContextHolder.getActivity().startActivityForResult(enableBtIntent, 2);
-			synchronized (monitor) {
-				try {
-					monitor.wait();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-			}
-			if (cancelled)
-				throw new BluetoothStateException();
-			cancelled = false;
-		}
+		throw new BluetoothStateException("Bluetooth is unsupported on the IS14SH legacy build");
 	}
 
 	public static LocalDevice getLocalDevice() throws BluetoothStateException {

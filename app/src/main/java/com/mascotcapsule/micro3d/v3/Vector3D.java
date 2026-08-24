@@ -16,7 +16,6 @@
 
 package com.mascotcapsule.micro3d.v3;
 
-import androidx.annotation.NonNull;
 
 @SuppressWarnings("unused, WeakerAccess")
 public class Vector3D {
@@ -145,7 +144,6 @@ public class Vector3D {
 		this.z = x * v.y - y * v.x;
 	}
 
-	@NonNull
 	@Override
 	public String toString() {
 		return "Vector3D{" + x + ", " + y + ", " + z + "}";

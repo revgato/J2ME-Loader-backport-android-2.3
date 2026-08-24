@@ -31,7 +31,6 @@ import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
 
-import androidx.annotation.Nullable;
 import ru.playsoftware.j2meloader.R;
 
 public class Descriptor {
@@ -279,7 +278,7 @@ public class Descriptor {
 	}
 
 	@Override
-	public boolean equals(@Nullable Object obj) {
+	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
 		if (!(obj instanceof Descriptor))

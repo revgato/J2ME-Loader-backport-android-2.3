@@ -63,14 +63,9 @@ class Platform {
 	 * otherwise false
 	 */
 	static boolean uiThreadAvailable() {
-		{
-			// UI thread is available, so load native library if not already loaded
-			if (!libraryLoaded) {
-				System.loadLibrary("javam3g");
-				libraryLoaded = true;
-			}
-			return true;
-		}
+		// Native M3G is not packaged in the IS14SH build. Returning false lets the
+		// Java facade fail with a controlled unsupported error instead of verifier/native errors.
+		return false;
 	}
 
 	/**
@@ -174,4 +169,3 @@ class Platform {
 
 	private static final native void _finalizeObject(long handle);
 }
-

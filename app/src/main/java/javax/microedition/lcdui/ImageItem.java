@@ -23,8 +23,6 @@ import android.text.style.URLSpan;
 import android.view.View;
 import android.widget.ImageView;
 
-import androidx.appcompat.widget.AppCompatImageView;
-
 import javax.microedition.lcdui.event.SimpleEvent;
 import javax.microedition.util.ContextHolder;
 
@@ -95,7 +93,7 @@ public class ImageItem extends Item {
 	@Override
 	public View getItemContentView() {
 		if (imageView == null) {
-			imageView = new AppCompatImageView(ContextHolder.getActivity());
+			imageView = new ImageView(ContextHolder.getActivity());
 			imageView.setScaleType(ImageView.ScaleType.FIT_XY);
 			imageView.setOnClickListener(v -> fireDefaultCommandAction());
 			updateImageView();

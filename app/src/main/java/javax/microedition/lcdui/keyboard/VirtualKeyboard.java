@@ -28,8 +28,6 @@ import android.util.Log;
 import android.util.SparseBooleanArray;
 import android.view.View;
 
-import androidx.annotation.NonNull;
-
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -1264,7 +1262,6 @@ public class VirtualKeyboard implements Overlay, Runnable {
 			g.drawString(label, rect.centerX(), rect.centerY());
 		}
 
-		@NonNull
 		public String toString() {
 			return "[" + label + ": " + rect.left + ", " + rect.top + ", " + rect.right + ", " + rect.bottom + "]";
 		}

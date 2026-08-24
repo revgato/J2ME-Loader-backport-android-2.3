@@ -69,7 +69,6 @@ import ru.playsoftware.j2meloader.base.BaseActivity;
 import ru.playsoftware.j2meloader.databinding.ActivityConfigBinding;
 import ru.playsoftware.j2meloader.settings.KeyMapperActivity;
 import ru.playsoftware.j2meloader.util.FileUtils;
-import yuku.ambilwarna.AmbilWarnaDialog;
 
 import static ru.playsoftware.j2meloader.util.Constants.*;
 
@@ -836,20 +835,14 @@ public class ConfigActivity extends BaseActivity implements View.OnClickListener
 	}
 
 	private void showColorPicker(EditText et) {
-		AmbilWarnaDialog.OnAmbilWarnaListener colorListener = new AmbilWarnaDialog.OnAmbilWarnaListener() {
-			@Override
-			public void onOk(AmbilWarnaDialog dialog, int color) {
-				et.setText(String.format("%06X", color & 0xFFFFFF));
-				ColorDrawable drawable = (ColorDrawable) TextViewCompat.getCompoundDrawablesRelative(et)[2];
-				drawable.setColor(color);
-			}
-
-			@Override
-			public void onCancel(AmbilWarnaDialog dialog) {
-			}
-		};
-		int color = parseInt(et.getText().toString().trim(), 16);
-		new AmbilWarnaDialog(this, color | 0xFF000000, colorListener).show();
+		final EditText input = new EditText(this);
+		input.setText(et.getText().toString());
+		new AlertDialog.Builder(this).setTitle("Color (RRGGBB)").setView(input)
+				.setPositiveButton(android.R.string.ok, (dialog, which) -> {
+					int color = parseInt(input.getText().toString().trim(), 16) | 0xFF000000;
+					et.setText(String.format("%06X", color & 0xFFFFFF));
+					et.setBackgroundColor(color);
+				}).setNegativeButton(android.R.string.cancel, null).show();
 	}
 
 	private void addResolutionToPresets() {

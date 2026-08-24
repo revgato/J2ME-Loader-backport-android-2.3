@@ -26,7 +26,6 @@
  */
 package org.microemu.cldc.file;
 
-import android.content.Context;
 import android.net.Uri;
 import android.util.Log;
 
@@ -49,10 +48,6 @@ import java.util.regex.Pattern;
 
 import javax.microedition.io.file.ConnectionClosedException;
 import javax.microedition.io.file.FileConnection;
-import javax.microedition.util.ContextHolder;
-
-import androidx.core.content.FileProvider;
-
 import ru.playsoftware.j2meloader.config.Config;
 
 public class FileSystemFileConnection implements FileConnection {
@@ -260,9 +255,7 @@ public class FileSystemFileConnection implements FileConnection {
 	}
 
 	public Uri getURI() {
-		Context context = ContextHolder.getAppContext();
-		return FileProvider.getUriForFile(context,
-				context.getApplicationContext().getPackageName() + ".provider", file);
+		return Uri.fromFile(file);
 	}
 
 	@Override

@@ -18,8 +18,6 @@ package ru.playsoftware.j2meloader.config;
 
 import java.io.File;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import ru.playsoftware.j2meloader.util.FileUtils;
 
 public class Profile implements Comparable<Profile> {
@@ -67,7 +65,7 @@ public class Profile implements Comparable<Profile> {
 	}
 
 	@Override
-	public int compareTo(@NonNull Profile o) {
+	public int compareTo(Profile o) {
 		return name.toLowerCase().compareTo(o.name.toLowerCase());
 	}
 
@@ -80,7 +78,7 @@ public class Profile implements Comparable<Profile> {
 	}
 
 	@Override
-	public boolean equals(@Nullable Object obj) {
+	public boolean equals(Object obj) {
 		if (this == obj) return true;
 		if (!(obj instanceof Profile)) {
 			return false;

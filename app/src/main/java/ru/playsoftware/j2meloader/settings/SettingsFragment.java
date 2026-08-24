@@ -23,7 +23,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.DocumentsContract;
 
-import com.nononsenseapps.filepicker.Utils;
 
 import java.io.File;
 
@@ -114,7 +113,7 @@ public class SettingsFragment extends PreferenceFragmentCompat {
 		if (uri == null) {
 			return;
 		}
-		File file = Utils.getFileForUri(uri);
+		File file = uri == null || uri.getPath() == null ? null : new File(uri.getPath());
 		String path = file.getAbsolutePath();
 		if (!FileUtils.initWorkDir(file)) {
 			new AlertDialog.Builder(requireActivity())

@@ -16,15 +16,10 @@
 
 package javax.microedition.media;
 
-import android.os.Build;
-
-import androidx.annotation.RequiresApi;
-
 import javax.microedition.lcdui.VideoItem;
 import javax.microedition.media.control.GUIControl;
 import javax.microedition.media.control.VideoControl;
 
-@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
 public class CameraPlayer extends BasePlayer implements VideoControl {
 
 	private final CameraController controller;
@@ -95,6 +90,6 @@ public class CameraPlayer extends BasePlayer implements VideoControl {
 
 	@Override
 	public byte[] getSnapshot(String imageType) throws MediaException {
-		return controller.getSnapshot();
+		throw new MediaException("Camera is unsupported on the IS14SH legacy build");
 	}
 }

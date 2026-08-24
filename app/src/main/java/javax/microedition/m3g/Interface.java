@@ -123,10 +123,7 @@ class Interface {
 	 * Returns the M3G interface instance for the current MIDlet.
 	 */
 	static final Interface getInstance() {
-		if (instance == null) {
-			instance = new Interface();
-		}
-		return instance;
+		throw new UnsupportedOperationException("M3G is unsupported on the IS14SH legacy build");
 	}
 
 	/**

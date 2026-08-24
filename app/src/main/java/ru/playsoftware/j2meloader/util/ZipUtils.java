@@ -16,14 +16,13 @@
 
 package ru.playsoftware.j2meloader.util;
 
-import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.model.FileHeader;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 public class ZipUtils {
 
@@ -31,7 +30,7 @@ public class ZipUtils {
 
 	public static void unzipEntry(File srcZip, String name, File dst) throws IOException {
 		ZipFile zip = new ZipFile(srcZip);
-		FileHeader entry = zip.getFileHeader(name);
+		ZipEntry entry = zip.getEntry(name);
 		if (entry == null) {
 			throw new IOException("Entry '" + name + "' not found in zip: " + srcZip);
 		}
@@ -42,6 +41,9 @@ public class ZipUtils {
 			while ((read = bis.read(data)) != -1) {
 				bos.write(data, 0, read);
 			}
+		}
+		finally {
+			zip.close();
 		}
 	}
 }

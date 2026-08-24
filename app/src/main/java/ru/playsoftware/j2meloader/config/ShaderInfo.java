@@ -19,8 +19,6 @@ package ru.playsoftware.j2meloader.config;
 import android.os.Parcel;
 import android.os.Parcelable;
 
-import androidx.annotation.NonNull;
-
 import com.google.gson.annotations.SerializedName;
 
 public class ShaderInfo implements Comparable<ShaderInfo>, Parcelable {
@@ -206,7 +204,6 @@ public class ShaderInfo implements Comparable<ShaderInfo>, Parcelable {
 		}
 	}
 
-	@NonNull
 	@Override
 	public String toString() {
 		return name == null ? "unnamed" : name;

@@ -10,6 +10,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class LegacyInstallerTest {
@@ -79,6 +80,54 @@ public class LegacyInstallerTest {
         delete(root);
     }
 
+    @Test
+    public void converterOutOfMemoryDoesNotPublishPartialGame() throws Exception {
+        File root = tempDirectory();
+        File jar = createJar("OomDemo", "Fixture", "1.0");
+        LegacyInstaller installer = new LegacyInstaller(root, new LegacyInstaller.DexConverter() {
+            @Override public void convert(File source, File dex) {
+                throw new OutOfMemoryError("test OOM");
+            }
+        });
+
+        InstallResult result = installer.install(jar);
+
+        assertEquals(InstallResult.Status.FAILED, result.getStatus());
+        assertTrue(new File(root, "converted").isDirectory());
+        assertEquals(0, new File(root, "converted").list().length);
+        delete(root);
+        jar.delete();
+    }
+
+    @Test
+    public void converterRuntimeFailureDoesNotPublishPartialGame() throws Exception {
+        File root = tempDirectory();
+        File jar = createJar("RuntimeDemo", "Fixture", "1.0");
+        LegacyInstaller installer = new LegacyInstaller(root, new LegacyInstaller.DexConverter() {
+            @Override public void convert(File source, File dex) {
+                throw new IllegalStateException("test converter failure");
+            }
+        });
+
+        InstallResult result = installer.install(jar);
+
+        assertEquals(InstallResult.Status.FAILED, result.getStatus());
+        assertFalse(new File(root, "converted/RuntimeDemo").exists());
+        delete(root);
+        jar.delete();
+    }
+
+    @Test
+    public void dxArgumentsUseLowMemorySettings() throws Exception {
+        File jar = new File("/tmp/game.jar");
+        File dex = new File("/tmp/game.dex");
+
+        assertEquals(
+                "--no-optimize --no-locals --positions=none --num-threads=1 --core-library "
+                        + "--min-sdk-version=10 --output=/tmp/game.dex /tmp/game.jar",
+                join(LegacyInstaller.dexArguments(jar, dex)));
+    }
+
     private static File createJar(String name, String vendor, String version) throws Exception {
         File jar = File.createTempFile("legacy-installer-", ".jar");
         Manifest manifest = new Manifest();
@@ -126,6 +175,15 @@ public class LegacyInstallerTest {
 
     private static String readText(File file) throws Exception {
         return new String(read(file), "UTF-8");
+    }
+
+    private static String join(String[] values) {
+        StringBuilder result = new StringBuilder();
+        for (String value : values) {
+            if (result.length() > 0) result.append(' ');
+            result.append(value);
+        }
+        return result.toString();
     }
 
     private static File tempDirectory() throws Exception {

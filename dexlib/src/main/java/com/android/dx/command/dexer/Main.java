@@ -308,51 +308,56 @@ public class Main {
 
 
         try {
-            for (int i = 0; i < fileNames.length; i++) {
-                processOne(fileNames[i], path -> path.endsWith(".class"));
+            try {
+                for (int i = 0; i < fileNames.length; i++) {
+                    processOne(fileNames[i], path -> path.endsWith(".class"));
+                }
+            } catch (StopProcessing ex) {
+                /*
+                 * Ignore it and just let the error reporting do
+                 * their things.
+                 */
             }
-        } catch (StopProcessing ex) {
-            /*
-             * Ignore it and just let the error reporting do
-             * their things.
-             */
-        }
 
-        try {
-            classTranslatorPool.shutdown();
-            classTranslatorPool.awaitTermination(600L, TimeUnit.SECONDS);
-            classDefItemConsumer.shutdown();
-            classDefItemConsumer.awaitTermination(600L, TimeUnit.SECONDS);
+            try {
+                classTranslatorPool.shutdown();
+                classTranslatorPool.awaitTermination(600L, TimeUnit.SECONDS);
+                classDefItemConsumer.shutdown();
+                classDefItemConsumer.awaitTermination(600L, TimeUnit.SECONDS);
 
-            for (Future<Boolean> f : addToDexFutures) {
-                try {
-                    f.get();
-                } catch(ExecutionException ex) {
-                    // Catch any previously uncaught exceptions from
-                    // class translation and adding to dex.
-                    int count = errors.incrementAndGet();
-                    if (count < 10) {
-                        if (args.debug) {
-                            context.err.println("Uncaught translation error:");
-                            ex.getCause().printStackTrace(context.err);
+                for (Future<Boolean> f : addToDexFutures) {
+                    try {
+                        f.get();
+                    } catch(ExecutionException ex) {
+                        // Catch any previously uncaught exceptions from
+                        // class translation and adding to dex.
+                        int count = errors.incrementAndGet();
+                        if (count < 10) {
+                            if (args.debug) {
+                                context.err.println("Uncaught translation error:");
+                                ex.getCause().printStackTrace(context.err);
+                            } else {
+                                context.err.println("Uncaught translation error: " + ex.getCause());
+                            }
                         } else {
-                            context.err.println("Uncaught translation error: " + ex.getCause());
+                            throw new InterruptedException("Too many errors");
                         }
-                    } else {
-                        throw new InterruptedException("Too many errors");
                     }
                 }
-            }
 
-        } catch (InterruptedException ie) {
+            } catch (InterruptedException ie) {
+                throw new RuntimeException("Translation has been interrupted", ie);
+            } catch (Exception e) {
+                e.printStackTrace(context.out);
+                throw new RuntimeException("Unexpected exception in translator thread.", e);
+            }
+        } finally {
+            // An Error from a caller-runs translation task can bypass the normal shutdown path.
+            // Stop both pools and release their Future references before the installer reports
+            // the conversion failure, otherwise a 50 MB Dalvik process remains poisoned.
             classTranslatorPool.shutdownNow();
             classDefItemConsumer.shutdownNow();
-            throw new RuntimeException("Translation has been interrupted", ie);
-        } catch (Exception e) {
-            classTranslatorPool.shutdownNow();
-            classDefItemConsumer.shutdownNow();
-            e.printStackTrace(context.out);
-            throw new RuntimeException("Unexpected exception in translator thread.", e);
+            addToDexFutures.clear();
         }
 
         int errorNum = errors.get();

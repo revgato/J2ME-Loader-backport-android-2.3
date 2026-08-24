@@ -105,6 +105,11 @@ public final class LegacyInstaller {
             return InstallResult.rejected(e.getMessage());
         } catch (IOException e) {
             return InstallResult.failed(e.getMessage());
+        } catch (OutOfMemoryError e) {
+            return InstallResult.failed("Not enough memory to convert this game");
+        } catch (RuntimeException e) {
+            String message = e.getMessage();
+            return InstallResult.failed(message == null ? "Game conversion failed" : message);
         } finally {
             if (temp != null) {
                 deleteRecursively(temp);
@@ -296,14 +301,19 @@ public final class LegacyInstaller {
     private static final class DxDexConverter implements DexConverter {
         @Override
         public void convert(File jar, File dex) throws IOException {
-            String[] args = new String[]{"--no-optimize", "--core-library", "--min-sdk-version=10",
-                    "--output=" + dex.getAbsolutePath(), jar.getAbsolutePath()};
+            String[] args = dexArguments(jar, dex);
             // Main.main parses the min-sdk flag and throws when dx cannot produce an output.
             Main.main(args);
             if (!dex.isFile()) {
                 throw new IOException("dx did not produce a DEX file");
             }
         }
+    }
+
+    static String[] dexArguments(File jar, File dex) {
+        return new String[]{"--no-optimize", "--no-locals", "--positions=none", "--num-threads=1",
+                "--core-library", "--min-sdk-version=10", "--output=" + dex.getAbsolutePath(),
+                jar.getAbsolutePath()};
     }
 
     private static final class Descriptor {

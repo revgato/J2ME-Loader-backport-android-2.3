@@ -67,17 +67,20 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 
 	public static void notifyDestroyed() {
 		Thread.setDefaultUncaughtExceptionHandler(uncaughtExceptionHandler);
-		if (instance != null) {
-			instance.state = DESTROYED;
+		MidletThread current = instance;
+		if (current != null) {
+			current.state = DESTROYED;
 		}
 		MicroActivity activity = ContextHolder.getActivity();
 		if (activity != null) {
 			activity.finish();
 		}
-		if (startAfterDestroy != null) {
+		if (current != null && startAfterDestroy != null) {
 			Config.startApp(ContextHolder.getActivity(), startAfterDestroy[0], startAfterDestroy[1], false, startAfterDestroy[2]);
 		}
-		Process.killProcess(Process.myPid());
+		if (current != null) {
+			Process.killProcess(Process.myPid());
+		}
 	}
 
 	public static void notifyPaused() {
@@ -119,6 +122,27 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 		}
 	}
 
+	private void reportFailure(String message, Throwable error) {
+		state = DESTROYED;
+		Log.e(TAG, message, error);
+		handler.removeCallbacksAndMessages(null);
+		quit();
+		if (instance == this) {
+			instance = null;
+		}
+		final MicroActivity activity = ContextHolder.getActivity();
+		if (activity != null && !activity.isFinishing()) {
+			activity.runOnUiThread(new Runnable() {
+				@Override
+				public void run() {
+					if (!activity.isFinishing()) {
+						activity.showErrorDialog(message);
+					}
+				}
+			});
+		}
+	}
+
 	@Override
 	public boolean handleMessage(Message msg) {
 		switch (msg.what) {
@@ -130,7 +154,7 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 					midlet = microLoader.loadMIDlet(this.mainClass);
 					state = PAUSED;
 				} catch (Throwable t) {
-					throw new RuntimeException("Init midlet failed", t);
+					reportFailure("Unable to initialize MIDlet: " + rootMessage(t), t);
 				}
 				break;
 			case START:
@@ -144,8 +168,7 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 					state = PAUSED;
 					Log.w(TAG, "Midlet doesn't want to start!", e);
 				} catch (Throwable t) {
-					state = DESTROYED;
-					throw new RuntimeException("Failed startApp", t);
+					reportFailure("Unable to start MIDlet: " + rootMessage(t), t);
 				}
 				break;
 			case PAUSE:
@@ -160,7 +183,7 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 					try {
 						midlet.destroyApp(true);
 					} catch (MIDletStateChangeException ignored) {}
-					throw new RuntimeException("Filed pauseApp", t);
+					reportFailure("Unable to pause MIDlet: " + rootMessage(t), t);
 				}
 				break;
 			case DESTROY:
@@ -180,5 +203,14 @@ public class MidletThread extends HandlerThread implements Handler.Callback {
 				break;
 		}
 		return true;
+	}
+
+	private static String rootMessage(Throwable error) {
+		Throwable root = error;
+		while (root.getCause() != null) {
+			root = root.getCause();
+		}
+		String message = root.getMessage();
+		return root.getClass().getSimpleName() + (message == null ? "" : ": " + message);
 	}
 }

@@ -148,7 +148,11 @@ public class AppClassLoader extends DexClassLoader {
 				return null;
 			}
 			dis = new DataInputStream(zipFile.getInputStream(header));
-			byte[] data = new byte[(int) header.getUncompressedSize()];
+			long size = header.getSize();
+			if (size < 0 || size > Integer.MAX_VALUE) {
+				throw new IOException("Invalid resource size for " + name);
+			}
+			byte[] data = new byte[(int) size];
 			dis.readFully(data);
 			return data;
 		} catch (Exception e) {

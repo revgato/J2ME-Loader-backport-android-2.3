@@ -108,10 +108,9 @@ public final class LegacyMainActivity extends Activity {
         });
         boolean canGoUp = canNavigateToParent(directory);
         final String[] labels = new String[visible.size() + (canGoUp ? 1 : 0)];
-        int offset = 0;
+        final int offset = canGoUp ? 1 : 0;
         if (canGoUp) {
             labels[0] = "..";
-            offset = 1;
         }
         for (int i = 0; i < visible.size(); i++) {
             labels[i + offset] = visible.get(i).getName();

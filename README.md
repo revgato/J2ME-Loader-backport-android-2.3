@@ -1,44 +1,70 @@
-# J2ME-Loader 
+# J2ME-Loader for Android 2.3
 
-[![Build Status](https://app.bitrise.io/app/d9254be52c74982a/status.svg?token=DIHxcpAPIg0VXSHpeXsHHA&branch=master)](https://app.bitrise.io/app/d9254be52c74982a)
-[![Crowdin](https://d322cqt584bo4o.cloudfront.net/j2me-loader/localized.svg)](https://crowdin.com/project/j2me-loader)
-[![GitHub release](https://img.shields.io/github/release/nikita36078/J2ME-Loader.svg)](https://github.com/nikita36078/J2ME-Loader/releases)
+This repository contains a backport of [J2ME-Loader](https://github.com/nikita36078/J2ME-Loader) for Android 2.3 (API 10). It is intended for legacy devices that cannot run the current upstream application.
 
-J2ME-Loader is a J2ME emulator for Android. It supports most 2D and 3D games (including Mascot Capsule 3D ones). Emulator has a virtual keyboard, individual settings for each application, scaling support.
-This project is a fork of [J2meLoader](https://github.com/NaikSoftware/J2meLoader).  
-Special thanks to [woesss](https://github.com/woesss), the author of [JL-Mod](https://github.com/woesss/JL-Mod), for creating open-source Mascot Capsule implementation.
+The backport supports installing and running local JAR/JAD games from external storage. The launcher and MIDlet run in separate processes so that a game process can be terminated without losing the launcher or its icon cache. The validation device used for this backport is the Sharp AQUOS IS14SH.
 
-System requirements: Android 4.0+ for the upstream app; the API 10 legacy
-artifact in this checkout supports Android 2.3+.
+This project is based on [J2meLoader](https://github.com/NaikSoftware/J2meLoader). Special thanks to [woesss](https://github.com/woesss) for the open-source Mascot Capsule implementation used by the upstream project.
 
-[API 10 legacy build and device notes](README-ANDROID-2.3.md)
-[4PDA discussion](https://4pda.to/forum/index.php?showtopic=824201)  
-[XDA-Developers](https://forum.xda-developers.com/android/apps-games/app-j2me-loader-t3777889)  
-[EmuGen wiki](https://emulation.gametechwiki.com/index.php/J2ME_Loader)  
-[Discord](https://discord.gg/Ag4rcpz)  
-[Automated builds](https://install.appcenter.ms/users/nikita36078/apps/j2me-loader/distribution_groups/testers)
+## Build requirements
 
-<a href="https://play.google.com/store/apps/details?id=ru.playsoftware.j2meloader">
-<img src="https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png" height="75"></a>
-<a href="https://f-droid.org/app/ru.playsoftware.j2meloader">
-<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="75"></a>
+- JDK 17. JDK 21 or newer is not supported.
+- Gradle wrapper 8.7 and Android Gradle Plugin 8.5.1.
+- Android SDK Platform 34 and the corresponding build tools.
+- `minSdk=10`, `targetSdk=10`, and Java 8 bytecode/desugaring.
+- No NDK or native build is required.
+
+Build and verify the legacy artifacts with:
+
+```sh
+export JAVA_HOME=/path/to/jdk-17
+sh gradlew clean testDebugUnitTest lintDebug assembleDebug assembleRelease
+sh gradlew verifyLegacyArtifact
+```
+
+Release keystores are not stored in Git. Without release signing credentials, a local release build uses the debug key for APK validation only and must not be used for distribution.
+
+## Installing and running a game
+
+Build output is written to `app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.3.apk`.
+
+```sh
+adb install -r app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.3.apk
+adb shell mkdir -p /sdcard/J2ME-Loader/incoming
+adb push game.jar /sdcard/J2ME-Loader/incoming/
+adb push game.jad /sdcard/J2ME-Loader/incoming/   # optional
+```
+
+Open the application, choose `Install JAR/JAD`, browse to the game on the device, and select it from the catalog. A JAD file must reference a JAR in the same directory using a relative filename. Remote URLs, absolute paths, and parent-directory traversal are rejected.
+
+## Data layout
+
+The backport keeps game data in the following layout for compatibility with existing installations:
+
+```text
+/sdcard/J2ME-Loader/
+  converted/<game>/converted.dex
+  converted/<game>/res.jar
+  converted/<game>/converted.dex.conf
+  configs/<game>/...
+  data/<game>/...       # RMS data
+  fs/...
+```
+
+Updating a game replaces its directory under `converted` without removing `configs` or `data`, so RMS data survives updates, force-stops, and orientation changes.
+
+## Current scope
+
+Supported features include local JAR/JAD installation, JAR-to-DEX 035 conversion, software Canvas rendering, GLES2 rendering where available, RMS and game configuration storage, and MIDI, Tone, WAV, and MP3 playback.
+
+The following features are intentionally unsupported in this backport: M3G, Mascot Capsule 3D, native MIDI, the J2ME camera API, Bluetooth, Location, HTTP/HTTPS installation, MMF/ADPCM, crash reporting, and Google Play integration. Unsupported APIs return controlled errors.
 
 ## Compatibility
-[List of the tested Java Games (Touchscreen)](https://github.com/nikita36078/J2ME-Loader/wiki/List-of-Tested-Java-Games-(Touchscreen))  
-[List of the tested Java Games (Non Touchscreen)](https://github.com/nikita36078/J2ME-Loader/wiki/List-of-Tested-Java-Games-(Non-Touchscreen))  
-[List of the Java Games with Bugs](https://github.com/nikita36078/J2ME-Loader/wiki/List-of-Java-Games-with-Bugs)
 
-## Tips
- - Enabling filtering in some cases can greatly reduce performance. Disable this option if game is too slow.
- - Image flickering issues can be fixed by enabling the "Immediate processing mode" option.
-
-## Screenshots
-
-<img src="/screenshots/screen.jpg" width="288" height="512"> <img src="/screenshots/screen2.jpg" width="288" height="512">
-<img src="/screenshots/screen3.jpg" width="288" height="512"> <img src="/screenshots/screen4.jpg" width="288" height="512">
-* For more screenshots check out the [wiki](https://emulation.gametechwiki.com/index.php/J2ME_Loader#Screenshots)
+- [Tested Java games with touchscreen](https://github.com/nikita36078/J2ME-Loader/wiki/List-of-Tested-Java-Games-(Touchscreen))
+- [Tested Java games without touchscreen](https://github.com/nikita36078/J2ME-Loader/wiki/List-of-Tested-Java-Games-(Non-Touchscreen))
+- [Java games with known bugs](https://github.com/nikita36078/J2ME-Loader/wiki/List-of-Java-Games-with-Bugs)
 
 ## License
-> Copyright 2017-2024 Nikita Shakarun.
-> Licensed under the [Apache License, Version 2.0.](http://www.apache.org/licenses/LICENSE-2.0)  
-> (See the [LICENSE](https://github.com/nikita36078/J2ME-Loader/blob/master/LICENSE) file for the whole license text.)
+
+Copyright 2017-2024 Nikita Shakarun. Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0). See [LICENSE](LICENSE) for the complete license text.

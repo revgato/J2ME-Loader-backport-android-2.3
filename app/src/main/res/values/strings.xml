@@ -231,8 +231,8 @@
     <string name="pref_legacy_profiles_summary">Manage default settings for new games</string>
     <string name="legacy_clear_default">Clear default</string>
     <string name="legacy_key_mappings">Key mappings</string>
-    <string name="legacy_key_capture">Press a physical key for %1$s</string>
-    <string name="legacy_key_capture_hint">Back/Menu closes this dialog safely</string>
+    <string name="legacy_key_mapper_instruction">Tap a key, then press its physical key</string>
+    <string name="legacy_key_mapper_done">Done</string>
     <string name="legacy_save_and_play">Save &amp; Play</string>
     <string name="legacy_discard_changes">Discard unsaved changes?</string>
     <string name="legacy_delete_profile">Delete profile %1$s?</string>

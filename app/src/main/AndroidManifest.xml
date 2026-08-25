@@ -43,6 +43,11 @@
             android:theme="@style/AppTheme.LegacyScreen"
             android:exported="false" />
         <activity
+            android:name="ru.playsoftware.j2meloader.legacy.LegacyKeyMapperActivity"
+            android:theme="@style/AppTheme.LegacyScreen"
+            android:configChanges="orientation|keyboard|keyboardHidden"
+            android:exported="false" />
+        <activity
             android:name="javax.microedition.shell.MicroActivity"
             android:theme="@style/AppTheme.NoActionBar"
             android:configChanges="orientation|keyboard|keyboardHidden" />

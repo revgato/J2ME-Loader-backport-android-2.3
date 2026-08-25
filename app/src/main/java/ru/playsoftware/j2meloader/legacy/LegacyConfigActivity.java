@@ -54,6 +54,7 @@ public final class LegacyConfigActivity extends Activity {
     private static final String EXTRA_PROFILE_NEW = "legacy.profile.new";
     private static final String EXTRA_GAME = "legacy.game";
     private static final String EXTRA_GAME_NAME = "legacy.game.name";
+    private static final int REQUEST_KEY_MAPPING = 1001;
 
     private boolean isProfile;
     private boolean newProfile;
@@ -214,16 +215,9 @@ public final class LegacyConfigActivity extends Activity {
         map.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                LegacyKeyMapperDialog.show(LegacyConfigActivity.this, params == null ? null : params.keyMappings,
-                        new LegacyKeyMapperDialog.Callback() {
-                            @Override
-                            public void onMappingChanged(SparseIntArray mapping) {
-                                if (params != null) {
-                                    params.keyMappings = mapping;
-                                    dirty = true;
-                                }
-                            }
-                        });
+                startActivityForResult(LegacyKeyMapperActivity.createIntent(
+                        LegacyConfigActivity.this, params == null ? null : params.keyMappings),
+                        REQUEST_KEY_MAPPING);
             }
         });
 
@@ -319,6 +313,30 @@ public final class LegacyConfigActivity extends Activity {
                 }
             });
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_KEY_MAPPING || resultCode != RESULT_OK
+                || data == null || params == null) {
+            return;
+        }
+        if (data.getBooleanExtra(LegacyKeyMapperActivity.EXTRA_USE_DEFAULTS, false)) {
+            params.keyMappings = null;
+        } else {
+            int[] physicalKeys = data.getIntArrayExtra(LegacyKeyMapperActivity.EXTRA_PHYSICAL_KEYS);
+            int[] canvasKeys = data.getIntArrayExtra(LegacyKeyMapperActivity.EXTRA_CANVAS_KEYS);
+            if (physicalKeys == null || canvasKeys == null || physicalKeys.length != canvasKeys.length) {
+                return;
+            }
+            SparseIntArray mapping = new SparseIntArray();
+            for (int i = 0; i < physicalKeys.length; i++) {
+                mapping.put(physicalKeys[i], canvasKeys[i]);
+            }
+            params.keyMappings = mapping;
+        }
+        dirty = true;
     }
 
     private void putParams() {

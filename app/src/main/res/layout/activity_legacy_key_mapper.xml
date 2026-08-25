@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="6dp"
+        android:paddingRight="6dp">
+
+        <Button
+            android:id="@+id/legacy_key_mapper_reset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/reset_mapping" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:paddingLeft="6dp"
+            android:paddingRight="6dp"
+            android:text="@string/legacy_key_mapper_instruction"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/legacy_key_mapper_done"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/legacy_key_mapper_done" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_horizontal"
+                android:orientation="vertical"
+                android:padding="8dp">
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_a" android:text="@string/virtual_key_a" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_menu" android:text="@string/virtual_key_menu" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_b" android:text="@string/virtual_key_b" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_left_soft" android:text="@string/virtual_key_left_soft" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_up" android:text="@string/virtual_key_up" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_right_soft" android:text="@string/virtual_key_right_soft" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_left" android:text="@string/virtual_key_left" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_f" android:text="@string/virtual_key_f" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_right" android:text="@string/virtual_key_right" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_d" android:text="@string/virtual_key_d" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_down" android:text="@string/virtual_key_down" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_c" android:text="@string/virtual_key_c" />
+                </LinearLayout>
+
+                <LinearLayout
+                    style="@style/LegacyKeyMapperRow"
+                    android:layout_marginTop="12dp">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_1" android:text="@string/virtual_key_1" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_2" android:text="@string/virtual_key_2" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_3" android:text="@string/virtual_key_3" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_4" android:text="@string/virtual_key_4" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_5" android:text="@string/virtual_key_5" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_6" android:text="@string/virtual_key_6" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_7" android:text="@string/virtual_key_7" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_8" android:text="@string/virtual_key_8" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_9" android:text="@string/virtual_key_9" />
+                </LinearLayout>
+
+                <LinearLayout style="@style/LegacyKeyMapperRow">
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_star" android:text="@string/virtual_key_star" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_0" android:text="@string/virtual_key_0" />
+                    <Button style="@style/LegacyKeyMapperButton" android:id="@+id/virtual_key_pound" android:text="@string/virtual_key_pound" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+
+        <FrameLayout
+            android:id="@+id/legacy_key_mapper_layer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#90000000"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/legacy_key_mapper_popup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@color/background"
+                android:focusable="true"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/mapping_dialog_title"
+                    android:textColor="@color/text_primary"
+                    android:textSize="20sp" />
+
+                <TextView
+                    android:id="@+id/legacy_key_mapper_message"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="180dp"
+                    android:paddingTop="8dp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+            </LinearLayout>
+        </FrameLayout>
+    </FrameLayout>
+</LinearLayout>

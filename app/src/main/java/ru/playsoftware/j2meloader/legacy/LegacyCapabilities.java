@@ -31,6 +31,6 @@ public final class LegacyCapabilities {
     }
 
     public static UnsupportedOperationException unsupported(String capability) {
-        return new UnsupportedOperationException("Unsupported on IS14SH legacy build: " + capability);
+        return new UnsupportedOperationException("Unsupported on Android 2.3 legacy build: " + capability);
     }
 }

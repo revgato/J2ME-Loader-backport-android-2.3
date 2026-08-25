@@ -49,7 +49,7 @@ public class LocalDevice implements ActivityResultListener {
 	}
 
 	private LocalDevice() throws BluetoothStateException {
-		throw new BluetoothStateException("Bluetooth is unsupported on the IS14SH legacy build");
+		throw new BluetoothStateException("Bluetooth is unsupported on the Android 2.3 legacy build");
 	}
 
 	public static LocalDevice getLocalDevice() throws BluetoothStateException {

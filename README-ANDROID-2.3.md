@@ -1,9 +1,9 @@
-# J2ME-Loader 1.8.2 — Sharp AQUOS IS14SH
+# J2ME-Loader 1.8.3 — Android 2.3+ legacy build
 
-Đây là nhánh backport dài hạn cho firmware gốc Android 2.3.5/API 10 của Sharp
-AQUOS IS14SH (màn hình 960×540, bàn phím số trượt). APK dùng shell widget của
-Android API 10, chạy launcher và MIDlet trong cùng process, và chỉ nhận game
-local trên thẻ nhớ.
+Đây là bản backport dài hạn tương thích Android 2.3/API 10+. APK dùng shell
+widget của Android API 10, chạy launcher và MIDlet trong cùng process, và chỉ
+nhận game local trên thẻ nhớ. Sharp AQUOS IS14SH là thiết bị API 10 được xác
+thực, còn các ánh xạ phím riêng của máy chỉ được bật khi nhận đúng model.
 
 ## Môi trường build
 
@@ -25,7 +25,7 @@ Keystore release không nằm trong Git. Có thể cung cấp `keystore.properti
 ngoài repo (hoặc biến môi trường CI `BITRISE_*`); nếu không, local release dùng
 debug key để kiểm tra hình dạng APK, không dùng để phát hành.
 
-## Probe IS14SH
+## Probe IS14SH (thiết bị xác thực)
 
 Kết nối ADB với USB debugging bật rồi chạy:
 
@@ -43,17 +43,18 @@ phát được mà logcat không có `VerifyError`, `NoClassDefFoundError` hay
 ## Cài và chạy game
 
 ```sh
-adb install -r app/build/outputs/apk/release/J2ME-Loader-IS14SH-1.8.2.apk
+adb install -r app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.3.apk
 adb shell mkdir -p /sdcard/J2ME-Loader/incoming
 adb push game.jar /sdcard/J2ME-Loader/incoming/
 adb push game.jad /sdcard/J2ME-Loader/incoming/   # tùy chọn
 ```
 
-Mở ứng dụng, chọn `Install JAR/JAD`, duyệt `/sdcard`, rồi chạm game trong
-catalog. JAD phải trỏ đến JAR ở cùng thư mục bằng tên tương đối; URL
+Mở ứng dụng, chạm nút `+` (Install JAR/JAD), duyệt `/sdcard`, rồi chạm game
+trong catalog. JAD phải trỏ đến JAR ở cùng thư mục bằng tên tương đối; URL
 `http://`, `https://`, scheme khác, đường dẫn tuyệt đối và `..` đều bị từ chối.
 
-Trên launcher, phím Menu mở `Settings` và `Profiles`. Settings dùng file
+Trên launcher, nút bánh răng hoặc phím Menu mở `Settings`; Profiles nằm trong
+Settings để dùng được trên thiết bị không có phím vật lý. Settings dùng file
 `legacy-preferences` (giữ màn hình sáng, status bar và rung; thay đổi áp dụng
 ở lần chạy MIDlet kế tiếp). Trong Profiles có thể tạo, sửa, đổi tên, xóa có
 xác nhận, đặt/bỏ mặc định; giữ game để mở editor riêng. Editor chỉ ghi khi
@@ -75,7 +76,7 @@ Dữ liệu giữ nguyên tương thích với bản cũ:
 Update game thay nguyên tử thư mục trong `converted` và không xóa `configs` hay
 `data`, vì vậy RMS vẫn còn sau update, force-stop hoặc đổi orientation.
 
-## Phím IS14SH
+## Phím vật lý tùy thiết bị
 
 Profile tự áp dụng khi `Build.MODEL` hoặc `Build.DEVICE` chứa `IS14SH` (hoặc
 Sharp/IS14). Ánh xạ mặc định là `0–9`, `*`, `#`, D-pad lên/xuống/trái/phải,
@@ -91,8 +92,8 @@ Archive bị giới hạn 32 MiB, 4.096 entry và 128 MiB giải nén; tên tuy�
 `..`, ZIP traversal/bomb đều bị từ chối.
 
 Không hỗ trợ có chủ ý: M3G, Mascot Capsule 3D, MIDI native, camera J2ME,
-Bluetooth, Location, HTTP/HTTPS installer, MMF/ADPCM, crash upload, Google
-Play và Android 4+. Các API này trả lỗi “unsupported” có kiểm soát.
+Bluetooth, Location, HTTP/HTTPS installer, MMF/ADPCM, crash upload và Google
+Play. Các API này trả lỗi “unsupported” có kiểm soát.
 
 `fixtures/is14sh/KeyAudioRmsMidlet.java` là MIDlet fixture tự viết để kiểm tra
 keypad, âm thanh và RMS; không commit JAR game của người dùng.

@@ -90,6 +90,6 @@ public class CameraPlayer extends BasePlayer implements VideoControl {
 
 	@Override
 	public byte[] getSnapshot(String imageType) throws MediaException {
-		throw new MediaException("Camera is unsupported on the IS14SH legacy build");
+		throw new MediaException("Camera is unsupported on the Android 2.3 legacy build");
 	}
 }

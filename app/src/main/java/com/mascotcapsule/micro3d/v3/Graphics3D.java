@@ -75,7 +75,7 @@ public class Graphics3D {
 	private Render render;
 
 	public Graphics3D() {
-		throw new UnsupportedOperationException("Mascot Capsule 3D is unsupported on the IS14SH legacy build");
+		throw new UnsupportedOperationException("Mascot Capsule 3D is unsupported on the Android 2.3 legacy build");
 	}
 
 	public final synchronized void bind(Graphics graphics) {

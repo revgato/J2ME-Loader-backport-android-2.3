@@ -101,7 +101,7 @@ public class Graphics3D {
 	// Constructor(s)
 	//------------------------------------------------------------------
 	public static final Graphics3D getInstance() {
-		throw new UnsupportedOperationException("M3G is unsupported on the IS14SH legacy build");
+		throw new UnsupportedOperationException("M3G is unsupported on the Android 2.3 legacy build");
 	}
 
 	public static void initGraphics3D() {

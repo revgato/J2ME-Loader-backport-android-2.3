@@ -99,7 +99,7 @@ public class FileUtils {
 				}
 			}
 		}
-		throw new IOException("Only file:// URIs are supported on the IS14SH build");
+		throw new IOException("Only file:// URIs are supported on the Android 2.3 legacy build");
 	}
 
 	public static byte[] getBytes(File file) throws IOException {

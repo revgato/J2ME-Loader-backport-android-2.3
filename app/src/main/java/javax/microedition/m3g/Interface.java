@@ -123,7 +123,7 @@ class Interface {
 	 * Returns the M3G interface instance for the current MIDlet.
 	 */
 	static final Interface getInstance() {
-		throw new UnsupportedOperationException("M3G is unsupported on the IS14SH legacy build");
+		throw new UnsupportedOperationException("M3G is unsupported on the Android 2.3 legacy build");
 	}
 
 	/**

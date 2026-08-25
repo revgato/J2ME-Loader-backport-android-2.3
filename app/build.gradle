@@ -15,8 +15,8 @@ android {
         applicationId "ru.playsoftware.j2meloader.legacy"
         minSdk MIN_SDK
         targetSdk TARGET_SDK
-        versionCode 102
-        versionName "1.8.2"
+        versionCode 103
+        versionName "1.8.3"
         resValue 'string', 'app_name', rootProject.name
         buildConfigField 'boolean', 'FULL_EMULATOR', 'true'
     }
@@ -26,13 +26,13 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
         // Language-level Java 8 desugaring is handled by D8.  Core-library
         // desugaring is intentionally disabled: AGP requires multidex for
-        // core-library desugaring on API < 21, while the IS14SH artifact must
+        // core-library desugaring on API < 21, while the legacy artifact must
         // contain a single classes.dex for stock Dalvik.
     }
 
     signingConfigs {
         // The fallback local key is also used for release builds when the
-        // external IS14SH keystore is unavailable. Keep it Dalvik-compatible.
+        // external release keystore is unavailable. Keep the fallback Dalvik-compatible.
         debug {
             enableV1Signing true
             enableV2Signing false
@@ -60,7 +60,7 @@ android {
         release {
             minifyEnabled true
             shrinkResources true
-            // A real IS14SH release key is supplied through keystore.properties outside Git.
+            // A release key can be supplied through keystore.properties outside Git.
             // Falling back to the debug key keeps local artifact verification reproducible.
             signingConfig hasLegacyReleaseKey ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'),
@@ -91,7 +91,7 @@ android {
         if (buildType.name == 'debug') {
             resValue 'string', 'app_name', 'JL-Debug'
         }
-        def baseName = "J2ME-Loader-IS14SH-"
+        def baseName = "J2ME-Loader-Android-2.3-"
         outputs.all {
             outputFileName = "${baseName}${versionName}.apk"
                     .replaceAll('--+', '-').replaceAll(' +', '_')

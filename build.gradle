@@ -10,7 +10,7 @@ task clean(type: Delete) {
 
 ext {
     COMPILE_SDK = 34
-    // Sharp AQUOS IS14SH stock firmware is Android 2.3.5 / API 10.
+    // The legacy shell targets Android 2.3/API 10 and remains usable on later devices.
     MIN_SDK = 10
     TARGET_SDK = 10
 }

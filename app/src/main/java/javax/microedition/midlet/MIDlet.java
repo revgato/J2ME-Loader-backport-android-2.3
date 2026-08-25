@@ -123,7 +123,7 @@ public abstract class MIDlet {
 	}
 
 	private void parseJavaAppProtocol(String url) throws ConnectionNotFoundException {
-		throw new ConnectionNotFoundException("Inter-MIDlet launch is unsupported on the IS14SH build");
+		throw new ConnectionNotFoundException("Inter-MIDlet launch is unsupported on the Android 2.3 legacy build");
 	}
 
 	public final int checkPermission(String permission) {

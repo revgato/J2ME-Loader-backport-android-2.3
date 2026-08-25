@@ -51,7 +51,7 @@ public class Manager {
 			String type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
 			return createPlayer(stream, type);
 		} else if (locator.startsWith("capture://")) {
-			throw new UnsupportedOperationException("Capture is unsupported on the IS14SH legacy build");
+			throw new UnsupportedOperationException("Capture is unsupported on the Android 2.3 legacy build");
 		} else {
 			throw new UnsupportedOperationException("Unsupported media locator: " + locator);
 		}

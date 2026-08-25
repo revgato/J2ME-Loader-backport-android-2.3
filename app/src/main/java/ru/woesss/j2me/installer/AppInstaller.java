@@ -118,10 +118,10 @@ public class AppInstaller {
 		boolean isLocal;
 		String sourceScheme = uri == null ? null : uri.getScheme();
 		if ("http".equalsIgnoreCase(sourceScheme) || "https".equalsIgnoreCase(sourceScheme)) {
-			throw new ConverterException("Network installer is disabled on the IS14SH build");
+			throw new ConverterException("Network installer is disabled on the Android 2.3 legacy build");
 		}
 		if (sourceScheme != null && !"file".equalsIgnoreCase(sourceScheme)) {
-			throw new ConverterException("Only local file URIs are supported on the IS14SH build");
+			throw new ConverterException("Only local file URIs are supported on the Android 2.3 legacy build");
 		}
 		srcFile = FileUtils.getFileForUri(context, uri);
 		isLocal = true;
@@ -223,7 +223,7 @@ public class AppInstaller {
 	}
 
 	private void downloadJad() throws ConverterException {
-		throw new ConverterException("Network installer is disabled on the IS14SH build");
+		throw new ConverterException("Network installer is disabled on the Android 2.3 legacy build");
 	}
 
 	/** Install app */
@@ -367,7 +367,7 @@ public class AppInstaller {
 	}
 
 	private void downloadJar() throws ConverterException {
-		throw new ConverterException("Network installer is disabled on the IS14SH build");
+		throw new ConverterException("Network installer is disabled on the Android 2.3 legacy build");
 	}
 
 	void deleteTemp() {

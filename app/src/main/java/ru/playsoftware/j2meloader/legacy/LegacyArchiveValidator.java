@@ -14,7 +14,7 @@ import java.util.zip.ZipFile;
 
 /**
  * Validates an untrusted JAR before it is handed to the converter or extracted.
- * The limits deliberately match the IS14SH backport security budget.
+ * The limits deliberately match the Android 2.3 legacy backport security budget.
  */
 public final class LegacyArchiveValidator {
     public static final long MAX_ARCHIVE_BYTES = 32L * 1024L * 1024L;

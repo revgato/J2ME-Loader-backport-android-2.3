@@ -63,7 +63,7 @@ class Platform {
 	 * otherwise false
 	 */
 	static boolean uiThreadAvailable() {
-		// Native M3G is not packaged in the IS14SH build. Returning false lets the
+		// Native M3G is not packaged in the Android 2.3 legacy build. Returning false lets the
 		// Java facade fail with a controlled unsupported error instead of verifier/native errors.
 		return false;
 	}

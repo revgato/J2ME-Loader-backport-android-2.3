@@ -22,7 +22,7 @@ public class VideoItem extends Item {
         if (view == null) {
             Context context = ContextHolder.getAppContext();
             view = new TextView(context);
-            view.setText("Camera unsupported on IS14SH");
+            view.setText("Camera unsupported on Android 2.3 legacy build");
         }
         return view;
     }

@@ -14,7 +14,10 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
 import android.text.TextWatcher;
+import android.text.style.TextAppearanceSpan;
 import android.util.SparseIntArray;
 import android.view.View;
 import android.view.KeyEvent;
@@ -173,15 +176,17 @@ public final class LegacyConfigActivity extends Activity {
         orientation = spinner(root, R.string.PREF_ORIENTATION, R.array.PREF_ORIENTATION_ENTRIES);
         scaleType = spinner(root, R.string.pref_screen_scale_type, R.array.pref_scale_type_entries);
         gravity = spinner(root, R.string.pref_screen_gravity, R.array.pref_screen_gravity_entries);
-        filter = check(root, R.string.PREF_FILTER);
-        immediate = check(root, R.string.PREF_IMMEDIATE);
-        fullscreen = check(root, R.string.PREF_FORCE_FULLSCREEN);
+        filter = check(root, R.string.PREF_FILTER, R.string.pref_legacy_config_filter_summary);
+        immediate = check(root, R.string.PREF_IMMEDIATE, R.string.pref_legacy_config_immediate_summary);
+        fullscreen = check(root, R.string.PREF_FORCE_FULLSCREEN, R.string.pref_legacy_config_fullscreen_summary);
 
         section(root, R.string.pref_graphics_mode_title);
         graphics = spinner(root, R.string.pref_graphics_mode_title, R.array.pref_graphics_mode_entries);
-        hwAcceleration = check(root, R.string.PREF_HW_ACCELERATION);
-        parallelRedraw = check(root, R.string.parallel_screen_redrawing);
-        showFps = check(root, R.string.PREF_SHOW_FPS);
+        hwAcceleration = check(root, R.string.PREF_HW_ACCELERATION,
+                R.string.pref_legacy_config_hw_acceleration_summary);
+        parallelRedraw = check(root, R.string.parallel_screen_redrawing,
+                R.string.pref_legacy_config_parallel_redraw_summary);
+        showFps = check(root, R.string.PREF_SHOW_FPS, R.string.pref_legacy_config_fps_summary);
         fps = edit(root, R.string.PREF_LIMIT_FPS, InputType.TYPE_CLASS_NUMBER);
 
         section(root, R.string.PREF_FONT_OPTIONS);
@@ -191,16 +196,20 @@ public final class LegacyConfigActivity extends Activity {
         fontMedium = edit(row, R.string.PREF_FONT_MEDIUM, InputType.TYPE_CLASS_NUMBER);
         fontLarge = edit(row, R.string.PREF_FONT_LARGE, InputType.TYPE_CLASS_NUMBER);
         root.addView(row);
-        fontDimensions = check(root, R.string.PREF_FONT_SIZE_IN_SP);
-        antiAlias = check(root, R.string.PREF_FONT_ANTI_ALIASING);
+        fontDimensions = check(root, R.string.PREF_FONT_SIZE_IN_SP,
+                R.string.pref_legacy_config_font_sp_summary);
+        antiAlias = check(root, R.string.PREF_FONT_ANTI_ALIASING,
+                R.string.pref_legacy_config_font_antialias_summary);
 
         section(root, R.string.PREF_VIRTUAL_KEYBOARD_OPTIONS);
-        touch = check(root, R.string.PREF_TOUCH_INPUT);
-        showKeyboard = check(root, R.string.PREF_VK_SHOW);
+        touch = check(root, R.string.PREF_TOUCH_INPUT, R.string.pref_legacy_config_touch_summary);
+        showKeyboard = check(root, R.string.PREF_VK_SHOW, R.string.pref_legacy_config_keyboard_summary);
         keyboardType = spinner(root, R.string.PREF_VK_TYPE, R.array.PREF_VK_TYPE_ENTRIES);
         layout = spinner(root, R.string.PREF_LAYOUT, R.array.PREF_LAYOUT_ENTRIES);
-        keyboardFeedback = check(root, R.string.PREF_VK_FEEDBACK);
-        keyboardOpacity = check(root, R.string.PREF_VK_FORCE_OPACITY);
+        keyboardFeedback = check(root, R.string.PREF_VK_FEEDBACK,
+                R.string.pref_legacy_config_keyboard_feedback_summary);
+        keyboardOpacity = check(root, R.string.PREF_VK_FORCE_OPACITY,
+                R.string.pref_legacy_config_keyboard_opacity_summary);
         Button map = button(root, R.string.pref_map_keys);
         map.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -297,9 +306,18 @@ public final class LegacyConfigActivity extends Activity {
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus && initialising) {
-            initialising = false;
-            loading = false;
-            dirty = false;
+            // Let callbacks queued by Spinner.setSelection() and CheckBox.setChecked() drain
+            // before enabling draft tracking. This is observable on the API 10 device.
+            getWindow().getDecorView().post(new Runnable() {
+                @Override
+                public void run() {
+                    if (initialising) {
+                        initialising = false;
+                        loading = false;
+                        dirty = false;
+                    }
+                }
+            });
         }
     }
 
@@ -531,13 +549,21 @@ public final class LegacyConfigActivity extends Activity {
         return spinner;
     }
 
-    private CheckBox check(LinearLayout parent, int label) {
+    private CheckBox check(LinearLayout parent, int label, int summary) {
         CheckBox box = new CheckBox(this);
-        box.setText(label);
+        SpannableStringBuilder text = new SpannableStringBuilder(getString(label));
+        if (summary != 0) {
+            text.append('\n');
+            int start = text.length();
+            text.append(getString(summary));
+            text.setSpan(new TextAppearanceSpan(this, android.R.style.TextAppearance_Small),
+                    start, text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        box.setText(text);
         box.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override public void onCheckedChanged(CompoundButton button, boolean checked) { markDirty(); }
         });
-        parent.addView(box);
+        parent.addView(box, new LinearLayout.LayoutParams(-1, -2));
         return box;
     }
 

@@ -189,6 +189,10 @@ tasks.register('verifyLegacyArtifact') {
             throw new GradleException(
                     'Release LegacyMainActivity must remain in the main application process')
         }
+        if (androidAttribute(launcherActivity, 'launchMode') != 'singleTop') {
+            throw new GradleException(
+                    'Release LegacyMainActivity must use singleTop to retain the MIDlet task')
+        }
 
         File outputDir = file("${buildDir}/outputs/apk/release")
         File[] candidates = outputDir.listFiles({ File file -> file.name.endsWith('.apk') } as FileFilter)

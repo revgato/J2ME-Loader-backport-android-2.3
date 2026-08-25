@@ -181,6 +181,10 @@
     <string name="pref_encoding_title">Mã hóa</string>
     <string name="pref_default_settings">Thiết lập mặc định</string>
     <string name="pref_emulator_dir">Thư mục làm việc</string>
+    <string name="pref_legacy_runtime_category">Môi trường chạy</string>
+    <string name="pref_legacy_storage_category">Bộ nhớ và hồ sơ</string>
+    <string name="pref_legacy_restart_summary">Áp dụng khi MIDlet tiếp theo khởi chạy</string>
+    <string name="pref_legacy_profiles_summary">Quản lý thiết lập mặc định cho game mới</string>
     <string name="mapping_dialog_message">Ánh xạ dòng: %1$s</string>
     <string name="mapping_dialog_key_not_specified">không chỉ định</string>
     <string name="mapping_dialog_title">Bấm một phím</string>

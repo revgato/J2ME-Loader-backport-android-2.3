@@ -15,7 +15,7 @@ android {
         applicationId "ru.playsoftware.j2meloader.legacy"
         minSdk MIN_SDK
         targetSdk TARGET_SDK
-        versionCode 101
+        versionCode 102
         versionName "1.8.2"
         resValue 'string', 'app_name', rootProject.name
         buildConfigField 'boolean', 'FULL_EMULATOR', 'true'

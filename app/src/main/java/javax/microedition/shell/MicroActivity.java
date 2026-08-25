@@ -11,6 +11,7 @@ import static ru.playsoftware.j2meloader.util.Constants.KEY_START_ARGUMENTS;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -34,6 +35,11 @@ import javax.microedition.util.ContextHolder;
 import ru.playsoftware.j2meloader.R;
 import ru.playsoftware.j2meloader.config.Config;
 import ru.playsoftware.j2meloader.databinding.ActivityMicroBinding;
+import ru.playsoftware.j2meloader.legacy.LegacyPreferences;
+
+import static ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_SCREEN;
+import static ru.playsoftware.j2meloader.util.Constants.PREF_STATUSBAR;
+import static ru.playsoftware.j2meloader.util.Constants.PREF_VIBRATION;
 
 /** Single-process platform Activity for the API 10 MIDlet runtime. */
 public class MicroActivity extends Activity {
@@ -53,8 +59,15 @@ public class MicroActivity extends Activity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        SharedPreferences preferences = LegacyPreferences.get(this);
+        if (!preferences.getBoolean(PREF_STATUSBAR, false)) {
+            getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        }
+        if (preferences.getBoolean(PREF_KEEP_SCREEN, false)) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+        ContextHolder.setVibration(preferences.getBoolean(PREF_VIBRATION, true));
         ContextHolder.setCurrentActivity(this);
         binding = ActivityMicroBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());

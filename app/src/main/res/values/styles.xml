@@ -11,6 +11,12 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
+    <style name="AppTheme.LegacyScreen" parent="android:style/Theme.Black">
+        <item name="android:windowNoTitle">false</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+
     <style name="ButtonStyle">
         <item name="android:minHeight">38dp</item>
         <item name="android:paddingLeft">6dp</item>

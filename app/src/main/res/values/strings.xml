@@ -210,6 +210,10 @@
     <string name="pref_category_experimental">Experimental/temporary options</string>
     <string name="pref_mascot_summary">Show message when using</string>
     <string name="pref_mascot_title">Detect Mascot Capsule 3D</string>
+    <string name="pref_legacy_runtime_category">Runtime</string>
+    <string name="pref_legacy_storage_category">Storage and profiles</string>
+    <string name="pref_legacy_restart_summary">Applied when the next MIDlet starts</string>
+    <string name="pref_legacy_profiles_summary">Manage default settings for new games</string>
 
     <string name="_RESOLUTION_SEPARATOR" translatable="false">x</string>
     <string name="_FONT_SEPARATOR" translatable="false">-</string>

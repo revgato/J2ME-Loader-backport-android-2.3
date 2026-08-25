@@ -30,6 +30,7 @@ import javax.microedition.util.ContextHolder;
 
 import ru.playsoftware.j2meloader.BuildConfig;
 import ru.playsoftware.j2meloader.R;
+import ru.playsoftware.j2meloader.legacy.LegacyPreferences;
 
 import static ru.playsoftware.j2meloader.util.Constants.*;
 
@@ -69,7 +70,7 @@ public class Config {
 		if (!BuildConfig.FULL_EMULATOR) appName = context.getString(R.string.app_name);
 		SCREENSHOTS_DIR = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
 				+ "/" + appName;
-		SharedPreferences preferences = context.getSharedPreferences("legacy-preferences", Context.MODE_PRIVATE);
+		SharedPreferences preferences = LegacyPreferences.get(context);
 		String path = preferences.getString(PREF_EMULATOR_DIR, null);
 		if (path == null) {
 			path = Environment.getExternalStorageDirectory() + "/" + appName;

@@ -13,6 +13,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
@@ -31,10 +33,14 @@ import java.util.concurrent.Executors;
 
 import javax.microedition.shell.MicroActivity;
 
+import ru.playsoftware.j2meloader.R;
+
 import static ru.playsoftware.j2meloader.util.Constants.KEY_MIDLET_NAME;
 
 /** Platform-widget launcher used on API 10; no SAF, fragments, database or notification channel. */
 public final class LegacyMainActivity extends Activity {
+    private static final int MENU_SETTINGS = 1;
+    private static final int MENU_PROFILES = 2;
     private final ExecutorService installerExecutor = Executors.newSingleThreadExecutor();
     private final ArrayList<LegacyAppCatalog.Game> games = new ArrayList<LegacyAppCatalog.Game>();
     private ArrayAdapter<String> gameAdapter;
@@ -70,6 +76,26 @@ public final class LegacyMainActivity extends Activity {
     protected void onDestroy() {
         installerExecutor.shutdownNow();
         super.onDestroy();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        menu.add(0, MENU_SETTINGS, 0, R.string.action_settings);
+        menu.add(0, MENU_PROFILES, 1, R.string.profiles);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_SETTINGS) {
+            startActivity(new Intent(this, LegacySettingsActivity.class));
+            return true;
+        }
+        if (item.getItemId() == MENU_PROFILES) {
+            startActivity(LegacyProfilesActivity.createIntent(this));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     private void refreshCatalog() {

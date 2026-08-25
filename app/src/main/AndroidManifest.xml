@@ -31,6 +31,12 @@
             </intent-filter>
         </activity>
         <activity
+            android:name="ru.playsoftware.j2meloader.legacy.LegacySettingsActivity"
+            android:theme="@style/AppTheme.LegacyScreen" />
+        <activity
+            android:name="ru.playsoftware.j2meloader.legacy.LegacyProfilesActivity"
+            android:theme="@style/AppTheme.LegacyScreen" />
+        <activity
             android:name="javax.microedition.shell.MicroActivity"
             android:theme="@style/AppTheme.NoActionBar"
             android:configChanges="orientation|keyboard|keyboardHidden" />

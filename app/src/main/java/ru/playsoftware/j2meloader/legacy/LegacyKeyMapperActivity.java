@@ -221,6 +221,12 @@ public final class LegacyKeyMapperActivity extends Activity implements View.OnCl
                 return true;
             }
         }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0) {
+            onBackPressed();
+            return true;
+        }
         return super.dispatchKeyEvent(event);
     }
 

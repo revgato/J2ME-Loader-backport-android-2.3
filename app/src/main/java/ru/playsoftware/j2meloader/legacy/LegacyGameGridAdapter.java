@@ -7,6 +7,8 @@ package ru.playsoftware.j2meloader.legacy;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -24,6 +26,7 @@ import ru.playsoftware.j2meloader.R;
 public final class LegacyGameGridAdapter extends BaseAdapter {
     private final LayoutInflater inflater;
     private final LegacyGameIconLoader iconLoader = new LegacyGameIconLoader();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final int iconSize;
     private List<LegacyAppCatalog.Game> games = Collections.emptyList();
 
@@ -33,6 +36,7 @@ public final class LegacyGameGridAdapter extends BaseAdapter {
     }
 
     public void setGames(List<LegacyAppCatalog.Game> values) {
+        mainHandler.removeCallbacksAndMessages(null);
         if (values == null || values.isEmpty()) {
             games = Collections.emptyList();
         } else {
@@ -43,6 +47,7 @@ public final class LegacyGameGridAdapter extends BaseAdapter {
     }
 
     public void close() {
+        mainHandler.removeCallbacksAndMessages(null);
         iconLoader.close();
     }
 
@@ -82,7 +87,7 @@ public final class LegacyGameGridAdapter extends BaseAdapter {
         iconLoader.load(game, iconSize, new LegacyGameIconLoader.Callback() {
             @Override
             public void onIconReady(final Bitmap bitmap) {
-                icon.post(new Runnable() {
+                mainHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         if (path.equals(icon.getTag())) {

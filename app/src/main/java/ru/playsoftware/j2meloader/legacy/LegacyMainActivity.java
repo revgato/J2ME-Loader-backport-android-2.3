@@ -16,18 +16,15 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.GridView;
 import android.widget.LinearLayout;
-import android.widget.ListView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,7 +40,7 @@ public final class LegacyMainActivity extends Activity {
     private static final int MENU_PROFILES = 2;
     private final ExecutorService installerExecutor = Executors.newSingleThreadExecutor();
     private final ArrayList<LegacyAppCatalog.Game> games = new ArrayList<LegacyAppCatalog.Game>();
-    private ArrayAdapter<String> gameAdapter;
+    private LegacyGameGridAdapter gameAdapter;
     private File emulatorDirectory;
 
     @Override
@@ -52,6 +49,7 @@ public final class LegacyMainActivity extends Activity {
         emulatorDirectory = new File(Environment.getExternalStorageDirectory(), "J2ME-Loader");
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(getResources().getColor(R.color.background));
 
         Button install = new Button(this);
         install.setText("Install JAR/JAD");
@@ -63,23 +61,33 @@ public final class LegacyMainActivity extends Activity {
         });
         root.addView(install, new LinearLayout.LayoutParams(-1, -2));
 
-        ListView list = new ListView(this);
-        gameAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1);
-        list.setAdapter(gameAdapter);
-        list.setOnItemClickListener((parent, view, position, id) -> launch(games.get(position)));
-        list.setOnItemLongClickListener((parent, view, position, id) -> {
+        GridView grid = new GridView(this);
+        grid.setNumColumns(GridView.AUTO_FIT);
+        grid.setColumnWidth(dp(112));
+        grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+        grid.setHorizontalSpacing(dp(8));
+        grid.setVerticalSpacing(dp(8));
+        grid.setPadding(dp(8), dp(8), dp(8), dp(8));
+        grid.setClipToPadding(false);
+        grid.setSelector(R.drawable.legacy_game_tile_background);
+        grid.setDrawSelectorOnTop(false);
+        gameAdapter = new LegacyGameGridAdapter(this);
+        grid.setAdapter(gameAdapter);
+        grid.setOnItemClickListener((parent, view, position, id) -> launch(games.get(position)));
+        grid.setOnItemLongClickListener((parent, view, position, id) -> {
             LegacyAppCatalog.Game game = games.get(position);
             startActivity(LegacyConfigActivity.createGameIntent(this,
                     game.getDirectory(), game.getName()));
             return true;
         });
-        root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
+        root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         refreshCatalog();
     }
 
     @Override
     protected void onDestroy() {
+        gameAdapter.close();
         installerExecutor.shutdownNow();
         super.onDestroy();
     }
@@ -106,15 +114,18 @@ public final class LegacyMainActivity extends Activity {
 
     private void refreshCatalog() {
         try {
+            ArrayList<LegacyAppCatalog.Game> scanned = new ArrayList<LegacyAppCatalog.Game>(
+                    new FileLegacyAppCatalog(emulatorDirectory).scan());
             games.clear();
-            games.addAll(new FileLegacyAppCatalog(emulatorDirectory).scan());
-            gameAdapter.clear();
-            for (LegacyAppCatalog.Game game : games) {
-                gameAdapter.add(game.getName() + "  " + game.getVersion());
-            }
+            games.addAll(scanned);
+            gameAdapter.setGames(scanned);
         } catch (Exception e) {
             Toast.makeText(this, "Catalog: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 
     private void showBrowser(final File directory) {

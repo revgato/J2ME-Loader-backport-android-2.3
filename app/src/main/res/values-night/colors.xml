@@ -10,4 +10,6 @@
     <color name="btn_bg_normal">#0099ff</color>
     <color name="btn_bg_pressed">#005D8C</color>
     <color name="config_card">#262e37</color>
+    <color name="legacy_game_tile_highlight">#34404d</color>
+    <color name="legacy_game_tile_pressed">#405263</color>
 </resources>

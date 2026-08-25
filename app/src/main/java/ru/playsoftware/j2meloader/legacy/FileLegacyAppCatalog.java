@@ -63,18 +63,22 @@ public final class FileLegacyAppCatalog implements LegacyAppCatalog {
     }
 
     private static String iconEntry(File descriptor) throws IOException {
-        String icon = read(descriptor, "MIDlet-Icon");
-        if (icon == null || icon.length() == 0) {
+        String icon = normalizeIconEntry(read(descriptor, "MIDlet-Icon"));
+        if (icon == null) {
             String firstMidlet = read(descriptor, "MIDlet-1");
             if (firstMidlet != null) {
                 int firstComma = firstMidlet.indexOf(',');
                 if (firstComma >= 0) {
                     int secondComma = firstMidlet.indexOf(',', firstComma + 1);
                     int end = secondComma >= 0 ? secondComma : firstMidlet.length();
-                    icon = firstMidlet.substring(firstComma + 1, end);
+                    icon = normalizeIconEntry(firstMidlet.substring(firstComma + 1, end));
                 }
             }
         }
+        return icon;
+    }
+
+    private static String normalizeIconEntry(String icon) {
         if (icon == null) {
             return null;
         }

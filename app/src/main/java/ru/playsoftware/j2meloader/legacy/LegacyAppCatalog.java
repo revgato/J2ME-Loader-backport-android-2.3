@@ -18,13 +18,20 @@ public interface LegacyAppCatalog {
         private final String name;
         private final String vendor;
         private final String version;
+        private final String iconEntry;
         private final File directory;
 
         public Game(String directoryName, String name, String vendor, String version, File directory) {
+            this(directoryName, name, vendor, version, null, directory);
+        }
+
+        public Game(String directoryName, String name, String vendor, String version,
+                    String iconEntry, File directory) {
             this.directoryName = directoryName;
             this.name = name;
             this.vendor = vendor;
             this.version = version;
+            this.iconEntry = iconEntry;
             this.directory = directory;
         }
 
@@ -42,6 +49,11 @@ public interface LegacyAppCatalog {
 
         public String getVersion() {
             return version;
+        }
+
+        /** Normalized path of the icon inside the installed resource JAR, or null. */
+        public String getIconEntry() {
+            return iconEntry;
         }
 
         public File getDirectory() {

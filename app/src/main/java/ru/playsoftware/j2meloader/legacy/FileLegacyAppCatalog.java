@@ -50,7 +50,8 @@ public final class FileLegacyAppCatalog implements LegacyAppCatalog {
             }
             String vendor = valueOrEmpty(read(descriptor, "MIDlet-Vendor"));
             String version = valueOrEmpty(read(descriptor, "MIDlet-Version"));
-            games.add(new Game(child.getName(), name, vendor, version, child));
+            String iconEntry = iconEntry(descriptor);
+            games.add(new Game(child.getName(), name, vendor, version, iconEntry, child));
         }
         Collections.sort(games, new Comparator<Game>() {
             @Override
@@ -59,6 +60,29 @@ public final class FileLegacyAppCatalog implements LegacyAppCatalog {
             }
         });
         return games;
+    }
+
+    private static String iconEntry(File descriptor) throws IOException {
+        String icon = read(descriptor, "MIDlet-Icon");
+        if (icon == null || icon.length() == 0) {
+            String firstMidlet = read(descriptor, "MIDlet-1");
+            if (firstMidlet != null) {
+                int firstComma = firstMidlet.indexOf(',');
+                if (firstComma >= 0) {
+                    int secondComma = firstMidlet.indexOf(',', firstComma + 1);
+                    int end = secondComma >= 0 ? secondComma : firstMidlet.length();
+                    icon = firstMidlet.substring(firstComma + 1, end);
+                }
+            }
+        }
+        if (icon == null) {
+            return null;
+        }
+        icon = icon.trim();
+        while (icon.startsWith("/")) {
+            icon = icon.substring(1);
+        }
+        return icon.length() == 0 ? null : icon;
     }
 
     private static String read(File file, String wanted) throws IOException {

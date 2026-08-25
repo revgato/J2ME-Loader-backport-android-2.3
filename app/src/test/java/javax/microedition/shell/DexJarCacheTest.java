@@ -38,6 +38,22 @@ public class DexJarCacheTest {
     }
 
     @Test
+    public void supportsDistinctCacheNamesForMultipleDexFiles() throws Exception {
+        File root = tempDirectory();
+        File dex = new File(root, "converted.compat.dex");
+        byte[] bytes = new byte[]{'d', 'e', 'x', '\n', '0', '3', '5', 0, 9};
+        write(dex, bytes);
+        File cache = new File(root, "cache");
+
+        File jar = DexJarCache.create(dex, cache, "midlet-compat.jar");
+
+        assertEquals("midlet-compat.jar", jar.getName());
+        assertTrue(jar.isFile());
+        assertFalse(new File(cache, "midlet-code.jar").isFile());
+        delete(root);
+    }
+
+    @Test
     public void rejectsNonDexInputWithoutPublishingCache() throws Exception {
         File root = tempDirectory();
         File dex = new File(root, "converted.dex");

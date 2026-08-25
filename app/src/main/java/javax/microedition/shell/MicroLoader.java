@@ -51,6 +51,7 @@ import ru.playsoftware.j2meloader.config.ProfileModel;
 import ru.playsoftware.j2meloader.config.ProfilesManager;
 import ru.playsoftware.j2meloader.legacy.LegacyPreferences;
 import ru.playsoftware.j2meloader.legacy.LegacyProfileStore;
+import ru.playsoftware.j2meloader.legacy.LegacyDexRepair;
 import ru.playsoftware.j2meloader.config.ShaderInfo;
 import ru.playsoftware.j2meloader.util.FileUtils;
 import ru.playsoftware.j2meloader.util.IOUtils;
@@ -162,14 +163,22 @@ public class MicroLoader {
 			if (codeCacheDir == null) {
 				throw new IOException("DEX cache directory is unavailable");
 			}
+			LegacyDexRepair.Result repair = LegacyDexRepair.prepare(appDir, codeCacheDir);
 			File dexContainer = DexJarCache.create(dexSource, codeCacheDir);
+			String dexPaths = dexContainer.getAbsolutePath();
+			if (repair.getStatus() == LegacyDexRepair.Status.READY) {
+				File compatContainer = DexJarCache.create(repair.getCompatDex(), codeCacheDir,
+						"midlet-compat.jar");
+				dexPaths += File.pathSeparator + compatContainer.getAbsolutePath();
+				Log.i(TAG, "Loaded " + repair.getClassCount() + " repaired class(es) from compatibility DEX");
+			}
 			File dexOptDir = new File(codeCacheDir, Config.DEX_OPT_CACHE_DIR);
 			if (dexOptDir.exists()) {
 				FileUtils.clearDirectory(dexOptDir);
 			} else if (!dexOptDir.mkdir()) {
 				throw new IOException("Can't create directory: [" + dexOptDir + ']');
 			}
-			ClassLoader loader = new AppClassLoader(dexContainer.getAbsolutePath(),
+			ClassLoader loader = new AppClassLoader(dexPaths,
 					dexOptDir.getAbsolutePath(), context.getClassLoader(), appDir);
 			Log.i(TAG, "loadMIDlet main: " + mainClass + " from dex cache:" + dexContainer.getPath());
 			//noinspection unchecked

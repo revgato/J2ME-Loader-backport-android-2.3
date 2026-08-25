@@ -22,8 +22,17 @@ final class DexJarCache {
     }
 
     static File create(File rawDex, File cacheDir) throws IOException {
+        return create(rawDex, cacheDir, CACHE_NAME);
+    }
+
+    static File create(File rawDex, File cacheDir, String cacheName) throws IOException {
         if (rawDex == null || cacheDir == null || !rawDex.isFile()) {
             throw new IOException("MIDlet DEX is missing");
+        }
+        if (cacheName == null || cacheName.length() == 0 || cacheName.indexOf('/') >= 0
+                || cacheName.indexOf('\\') >= 0 || ".".equals(cacheName)
+                || "..".equals(cacheName)) {
+            throw new IOException("Invalid DEX cache name");
         }
 
         FileInputStream input = new FileInputStream(rawDex);
@@ -64,7 +73,7 @@ final class DexJarCache {
                     output.close();
                 }
 
-                File result = new File(cacheDir, CACHE_NAME);
+                File result = new File(cacheDir, cacheName);
                 if (result.exists() && !result.delete()) {
                     throw new IOException("Can't replace DEX cache: " + result);
                 }

@@ -166,6 +166,30 @@ dependencies {
 tasks.register('verifyLegacyArtifact') {
     dependsOn 'assembleRelease'
     doLast {
+        File mergedManifest = file(
+                "${buildDir}/intermediates/merged_manifests/release/processReleaseManifest/AndroidManifest.xml")
+        if (!mergedManifest.isFile()) {
+            throw new GradleException("Missing merged release manifest: ${mergedManifest}")
+        }
+        def manifest = new XmlParser(false, false).parse(mergedManifest)
+        def androidAttribute = { node, String name -> node.attributes()["android:${name}"] }
+        def activities = manifest.application.activity
+        def midletActivity = activities.find {
+            androidAttribute(it, 'name') == 'javax.microedition.shell.MicroActivity'
+        }
+        if (midletActivity == null || androidAttribute(midletActivity, 'process') != ':midlet') {
+            throw new GradleException(
+                    'Release MicroActivity must run in the private :midlet process')
+        }
+        def launcherActivity = activities.find {
+            androidAttribute(it, 'name') ==
+                    'ru.playsoftware.j2meloader.legacy.LegacyMainActivity'
+        }
+        if (launcherActivity == null || androidAttribute(launcherActivity, 'process') != null) {
+            throw new GradleException(
+                    'Release LegacyMainActivity must remain in the main application process')
+        }
+
         File outputDir = file("${buildDir}/outputs/apk/release")
         File[] candidates = outputDir.listFiles({ File file -> file.name.endsWith('.apk') } as FileFilter)
         if (candidates == null || candidates.length != 1) {

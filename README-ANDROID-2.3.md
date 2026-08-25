@@ -1,8 +1,9 @@
 # J2ME-Loader 1.8.3 — Android 2.3+ legacy build
 
 Đây là bản backport dài hạn tương thích Android 2.3/API 10+. APK dùng shell
-widget của Android API 10, chạy launcher và MIDlet trong cùng process, và chỉ
-nhận game local trên thẻ nhớ. Sharp AQUOS IS14SH là thiết bị API 10 được xác
+widget của Android API 10, chạy launcher và MIDlet trong hai process riêng, và chỉ
+nhận game local trên thẻ nhớ. Process `:midlet` có thể bị kết thúc khi thoát game
+mà không làm mất launcher hoặc cache icon. Sharp AQUOS IS14SH là thiết bị API 10 được xác
 thực, còn các ánh xạ phím riêng của máy chỉ được bật khi nhận đúng model.
 
 ## Môi trường build

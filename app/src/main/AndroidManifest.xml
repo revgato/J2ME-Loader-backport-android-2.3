@@ -50,6 +50,7 @@
         <activity
             android:name="javax.microedition.shell.MicroActivity"
             android:theme="@style/AppTheme.NoActionBar"
-            android:configChanges="orientation|keyboard|keyboardHidden" />
+            android:configChanges="orientation|keyboard|keyboardHidden"
+            android:process=":midlet" />
     </application>
 </manifest>

@@ -121,7 +121,7 @@ public class Config {
 
 	public static void startApp(Context context, String name, String path, boolean showSettings, String arguments) {
 		// The legacy shell has no settings Activity; configuration is read from the
-		// existing configs/<game> directory and the MIDlet always starts in-process.
+		// existing configs/<game> directory; the release manifest runs the MIDlet in :midlet.
 		Intent intent = new Intent(context, MicroActivity.class);
 		intent.setData(Uri.fromFile(new File(path)));
 		intent.putExtra(KEY_MIDLET_NAME, name);

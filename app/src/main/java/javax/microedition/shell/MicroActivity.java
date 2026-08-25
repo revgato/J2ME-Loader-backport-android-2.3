@@ -41,7 +41,7 @@ import static ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_SCREEN;
 import static ru.playsoftware.j2meloader.util.Constants.PREF_STATUSBAR;
 import static ru.playsoftware.j2meloader.util.Constants.PREF_VIBRATION;
 
-/** Single-process platform Activity for the API 10 MIDlet runtime. */
+/** Platform Activity for the API 10 MIDlet runtime, isolated in release builds. */
 public class MicroActivity extends Activity {
     private static final int ORIENTATION_DEFAULT = 0;
     private static final int ORIENTATION_AUTO = 1;

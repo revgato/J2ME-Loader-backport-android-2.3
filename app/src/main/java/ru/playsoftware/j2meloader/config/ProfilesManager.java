@@ -26,17 +26,16 @@ import com.google.gson.JsonElement;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 
 import javax.microedition.lcdui.keyboard.VirtualKeyboard;
 import javax.microedition.util.ContextHolder;
 
-import ru.playsoftware.j2meloader.util.FileUtils;
+import ru.playsoftware.j2meloader.legacy.LegacyFileStore;
 import ru.playsoftware.j2meloader.util.XmlUtils;
 
 public class ProfilesManager {
@@ -44,7 +43,7 @@ public class ProfilesManager {
 	private static final String TAG = ProfilesManager.class.getName();
 	private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-	static ArrayList<Profile> getProfiles() {
+	public static ArrayList<Profile> getProfiles() {
 		File root = new File(Config.getProfilesDir());
 		return getList(root);
 	}
@@ -54,15 +53,16 @@ public class ProfilesManager {
 		if (dirs == null) {
 			return new ArrayList<>();
 		}
-		int size = dirs.length;
-		Profile[] profiles = new Profile[size];
-		for (int i = 0; i < size; i++) {
-			profiles[i] = new Profile(dirs[i].getName());
+		ArrayList<Profile> profiles = new ArrayList<>();
+		for (File dir : dirs) {
+			if (dir.isDirectory()) {
+				profiles.add(new Profile(dir.getName()));
+			}
 		}
-		return new ArrayList<>(Arrays.asList(profiles));
+		return profiles;
 	}
 
-	static void load(Profile from, String toPath, boolean config, boolean keyboard)
+	public static void load(Profile from, String toPath, boolean config, boolean keyboard)
 			throws IOException {
 		if (!config && !keyboard) {
 			return;
@@ -73,7 +73,7 @@ public class ProfilesManager {
 			if (config) {
 				File source = from.getConfig();
 				if (source.exists())
-					FileUtils.copyFileUsingChannel(source, dstConfig);
+					LegacyFileStore.copy(source, dstConfig);
 				else {
 					ProfileModel params = loadConfig(from.getDir());
 					if (params != null) {
@@ -82,13 +82,15 @@ public class ProfilesManager {
 					}
 				}
 			}
-			if (keyboard) FileUtils.copyFileUsingChannel(from.getKeyLayout(), dstKeyLayout);
+			if (keyboard && from.getKeyLayout().isFile()) {
+				LegacyFileStore.copy(from.getKeyLayout(), dstKeyLayout);
+			}
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
 	}
 
-	static void save(Profile profile, String fromPath, boolean config, boolean keyboard)
+	public static void save(Profile profile, String fromPath, boolean config, boolean keyboard)
 			throws IOException {
 		if (!config && !keyboard) {
 			return;
@@ -97,8 +99,10 @@ public class ProfilesManager {
 		File srcConfig = new File(fromPath, Config.MIDLET_CONFIG_FILE);
 		File srcKeyLayout = new File(fromPath, Config.MIDLET_KEY_LAYOUT_FILE);
 		try {
-			if (config) FileUtils.copyFileUsingChannel(srcConfig, profile.getConfig());
-			if (keyboard) FileUtils.copyFileUsingChannel(srcKeyLayout, profile.getKeyLayout());
+			if (config && srcConfig.isFile()) LegacyFileStore.copy(srcConfig, profile.getConfig());
+			if (keyboard && srcKeyLayout.isFile()) {
+				LegacyFileStore.copy(srcKeyLayout, profile.getKeyLayout());
+			}
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
 		}
@@ -108,7 +112,7 @@ public class ProfilesManager {
 		File file = new File(dir, Config.MIDLET_CONFIG_FILE);
 		ProfileModel params = null;
 		if (file.exists()) {
-			try (FileReader reader = new FileReader(file)) {
+			try (InputStreamReader reader = new InputStreamReader(new FileInputStream(file), "UTF-8")) {
 				params = gson.fromJson(reader, ProfileModel.class);
 				params.dir = dir;
 			} catch (Exception e) {
@@ -167,9 +171,10 @@ public class ProfilesManager {
 	}
 
 	public static boolean saveConfig(ProfileModel p) {
-		try (FileWriter writer = new FileWriter(new File(p.dir, Config.MIDLET_CONFIG_FILE))) {
-			gson.toJson(p, writer);
-			writer.close();
+		try {
+			StringWriter json = new StringWriter();
+			gson.toJson(p, json);
+			LegacyFileStore.writeUtf8(new File(p.dir, Config.MIDLET_CONFIG_FILE), json.toString());
 			return true;
 		} catch (Exception e) {
 			Log.e(TAG, "saveConfig: ", e);

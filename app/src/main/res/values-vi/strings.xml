@@ -184,6 +184,9 @@
     <string name="pref_legacy_runtime_category">Môi trường chạy</string>
     <string name="pref_legacy_storage_category">Bộ nhớ và hồ sơ</string>
     <string name="pref_legacy_restart_summary">Áp dụng khi MIDlet tiếp theo khởi chạy</string>
+    <string name="pref_legacy_keep_screen_summary">Ngăn màn hình tự tắt khi MIDlet đang chạy</string>
+    <string name="pref_legacy_statusbar_summary">Hiển thị thanh trạng thái Android khi MIDlet chạy</string>
+    <string name="pref_legacy_vibration_summary">Bật rung cho bàn phím và phản hồi của MIDlet</string>
     <string name="pref_legacy_profiles_summary">Quản lý thiết lập mặc định cho game mới</string>
     <string name="legacy_clear_default">Bỏ mặc định</string>
     <string name="legacy_key_mappings">Ánh xạ phím</string>

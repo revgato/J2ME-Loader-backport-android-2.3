@@ -32,11 +32,11 @@ public final class LegacySettingsActivity extends PreferenceActivity {
         runtime.setTitle(R.string.pref_legacy_runtime_category);
         screen.addPreference(runtime);
         runtime.addPreference(checkBox(PREF_KEEP_SCREEN, R.string.pref_wakelock_title,
-                R.string.pref_legacy_restart_summary, false));
+                R.string.pref_legacy_keep_screen_summary, false));
         runtime.addPreference(checkBox(PREF_STATUSBAR, R.string.pref_enable_statusbar_title,
-                R.string.pref_legacy_restart_summary, false));
+                R.string.pref_legacy_statusbar_summary, false));
         runtime.addPreference(checkBox(PREF_VIBRATION, R.string.pref_vibration_title,
-                0, true));
+                R.string.pref_legacy_vibration_summary, true));
 
         PreferenceCategory storage = new PreferenceCategory(this);
         storage.setTitle(R.string.pref_legacy_storage_category);

@@ -53,6 +53,7 @@
     <string name="converting_wait">Converting JAR...</string>
     <string name="install">install</string>
     <string name="install_done">Application successfully installed!</string>
+    <string name="install_jar_jad">Install JAR/JAD</string>
     <string name="install_jar_non_matched_jad">This app differs from that described in JAD.\nIgnore JAD and install anyway?</string>
     <string name="install_jar_needed">Select the JAR file</string>
     <string name="invalid_resolution_not_saved">Invalid resolutions: not saved!</string>

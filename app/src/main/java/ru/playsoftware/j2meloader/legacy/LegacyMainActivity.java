@@ -9,16 +9,18 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.view.KeyEvent;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.GridView;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
@@ -37,7 +39,6 @@ import static ru.playsoftware.j2meloader.util.Constants.KEY_MIDLET_NAME;
 /** Platform-widget launcher used on API 10; no SAF, fragments, database or notification channel. */
 public final class LegacyMainActivity extends Activity {
     private static final int MENU_SETTINGS = 1;
-    private static final int MENU_PROFILES = 2;
     private final ExecutorService installerExecutor = Executors.newSingleThreadExecutor();
     private final ArrayList<LegacyAppCatalog.Game> games = new ArrayList<LegacyAppCatalog.Game>();
     private LegacyGameGridAdapter gameAdapter;
@@ -51,15 +52,7 @@ public final class LegacyMainActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getResources().getColor(R.color.background));
 
-        Button install = new Button(this);
-        install.setText("Install JAR/JAD");
-        install.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showBrowser(Environment.getExternalStorageDirectory());
-            }
-        });
-        root.addView(install, new LinearLayout.LayoutParams(-1, -2));
+        root.addView(createToolbar(), new LinearLayout.LayoutParams(-1, dp(48)));
 
         GridView grid = new GridView(this);
         grid.setNumColumns(GridView.AUTO_FIT);
@@ -95,7 +88,6 @@ public final class LegacyMainActivity extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, MENU_SETTINGS, 0, R.string.action_settings);
-        menu.add(0, MENU_PROFILES, 1, R.string.profiles);
         return true;
     }
 
@@ -105,11 +97,54 @@ public final class LegacyMainActivity extends Activity {
             startActivity(new Intent(this, LegacySettingsActivity.class));
             return true;
         }
-        if (item.getItemId() == MENU_PROFILES) {
-            startActivity(LegacyProfilesActivity.createIntent(this));
-            return true;
-        }
         return super.onOptionsItemSelected(item);
+    }
+
+    private View createToolbar() {
+        LinearLayout toolbar = new LinearLayout(this);
+        toolbar.setOrientation(LinearLayout.HORIZONTAL);
+        toolbar.setGravity(Gravity.CENTER_VERTICAL);
+        toolbar.setBackgroundColor(getResources().getColor(R.color.primary));
+
+        TextView title = new TextView(this);
+        title.setText(R.string.app_name);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(20);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        title.setPadding(dp(16), 0, dp(8), 0);
+        toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1));
+
+        ImageButton install = toolbarAction(android.R.drawable.ic_menu_add,
+                R.string.install_jar_jad);
+        install.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showBrowser(Environment.getExternalStorageDirectory());
+            }
+        });
+        toolbar.addView(install, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        ImageButton settings = toolbarAction(android.R.drawable.ic_menu_preferences,
+                R.string.action_settings);
+        settings.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                startActivity(new Intent(LegacyMainActivity.this, LegacySettingsActivity.class));
+            }
+        });
+        toolbar.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        return toolbar;
+    }
+
+    private ImageButton toolbarAction(int icon, int description) {
+        ImageButton button = new ImageButton(this);
+        button.setImageResource(icon);
+        button.setContentDescription(getString(description));
+        button.setBackgroundResource(R.drawable.legacy_toolbar_action_background);
+        button.setPadding(dp(12), dp(12), dp(12), dp(12));
+        button.setFocusable(true);
+        button.setClickable(true);
+        return button;
     }
 
     private void refreshCatalog() {
@@ -244,14 +279,4 @@ public final class LegacyMainActivity extends Activity {
         startActivity(intent);
     }
 
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        // Keep the profile discoverable and leave the actual remap to the game Canvas.
-        Is14shKeyProfile profile = Is14shKeyProfile.forDevice(android.os.Build.MODEL,
-                android.os.Build.DEVICE);
-        if (profile != null && profile.getKeyNames().containsKey(keyCode)) {
-            return super.onKeyDown(keyCode, event);
-        }
-        return super.onKeyDown(keyCode, event);
-    }
 }

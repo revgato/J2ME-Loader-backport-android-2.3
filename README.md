@@ -24,6 +24,16 @@ sh gradlew verifyLegacyArtifact
 
 Release keystores are not stored in Git. Without release signing credentials, a local release build uses the debug key for APK validation only and must not be used for distribution.
 
+## Recommended game conversion workflow
+
+Prefer converting and building each game with J2ME-Loader on a device running a newer Android version, then copy the generated game directory to the Android 2.3 device. Game conversion on Android 2.3 can fail easily because of the legacy platform and should be treated as a fallback.
+
+1. Install a current J2ME-Loader on the newer Android device.
+2. Import the game's JAR/JAD and run the game once so J2ME-Loader generates its converted artifacts.
+3. Copy the complete `J2ME-Loader/converted/<game>/` directory to the same `converted` directory on the Android 2.3 device. Keep `converted.dex`, `res.jar`, and `converted.dex.conf` together.
+
+When updating an existing game, replace only its directory under `converted`; keep the corresponding directories under `configs` and `data` so that settings and RMS data are preserved.
+
 ## Installing and running a game
 
 Build output is written to `app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.3.apk`.

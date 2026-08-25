@@ -20,6 +20,7 @@ package javax.microedition.util;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Process;
 import android.os.Vibrator;
 import android.view.Display;
@@ -167,6 +168,18 @@ public class ContextHolder {
 		return currentActivity.get();
 	}
 
+	static boolean shouldQueryVibratorHardware(int sdkInt) {
+		return sdkInt >= Build.VERSION_CODES.HONEYCOMB;
+	}
+
+	private static boolean isVibratorAvailable() {
+		if (vibrator == null) {
+			return false;
+		}
+		// Vibrator.hasVibrator() was added in API 11; API 10 can still use vibrate/cancel.
+		return !shouldQueryVibratorHardware(Build.VERSION.SDK_INT) || vibrator.hasVibrator();
+	}
+
 	public static boolean vibrate(int duration) {
 		if (!vibrationEnabled) {
 			return false;
@@ -174,7 +187,7 @@ public class ContextHolder {
 		if (vibrator == null) {
 			vibrator = (Vibrator) getAppContext().getSystemService(Context.VIBRATOR_SERVICE);
 		}
-		if (vibrator == null || !vibrator.hasVibrator()) {
+		if (!isVibratorAvailable()) {
 			return false;
 		}
 		if (duration > 0) {
@@ -191,7 +204,7 @@ public class ContextHolder {
 		if (vibrator == null) {
 			vibrator = (Vibrator) getAppContext().getSystemService(Context.VIBRATOR_SERVICE);
 		}
-		if (vibrator == null || !vibrator.hasVibrator()) {
+		if (!isVibratorAvailable()) {
 			return;
 		}
 		vibrator.vibrate(duration);

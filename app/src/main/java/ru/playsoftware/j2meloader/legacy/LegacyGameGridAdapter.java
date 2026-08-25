@@ -76,7 +76,6 @@ public final class LegacyGameGridAdapter extends BaseAdapter {
         final ImageView icon = holder.icon;
         final String path = game.getDirectory().getAbsolutePath();
         icon.setTag(path);
-        icon.setFilterBitmap(false);
         icon.setImageResource(R.mipmap.ic_launcher);
         holder.name.setText(game.getName());
         convertView.setContentDescription(game.getName());

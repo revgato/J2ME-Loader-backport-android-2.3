@@ -5,6 +5,8 @@
  */
 package ru.playsoftware.j2meloader.legacy;
 
+import java.io.UnsupportedEncodingException;
+
 /** Bounds shared by the API 10 configuration editor and its host-side tests. */
 public final class LegacyConfigValidation {
     public static final int MIN_SCREEN = 64;
@@ -44,7 +46,7 @@ public final class LegacyConfigValidation {
     }
 
     public static void validateSystemProperties(String value) {
-        if (value == null || value.length() > MAX_SYSTEM_PROPERTIES) {
+        if (value == null || utf8Length(value) > MAX_SYSTEM_PROPERTIES) {
             throw new IllegalArgumentException("System properties are too large");
         }
         String[] lines = value.split("\\r?\\n", -1);
@@ -53,6 +55,14 @@ public final class LegacyConfigValidation {
             if (trimmed.length() != 0 && trimmed.indexOf(':') <= 0) {
                 throw new IllegalArgumentException("Every property must use key: value");
             }
+        }
+    }
+
+    private static int utf8Length(String value) {
+        try {
+            return value.getBytes("UTF-8").length;
+        } catch (UnsupportedEncodingException e) {
+            return value.length();
         }
     }
 }

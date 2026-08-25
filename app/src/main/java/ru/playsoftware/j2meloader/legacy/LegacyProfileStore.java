@@ -23,6 +23,10 @@ public final class LegacyProfileStore {
         if (gameConfigDir == null || hasAnyConfig(gameConfigDir)) {
             return false;
         }
+        File configsRoot = new File(Config.getConfigsDir());
+        if (!LegacyProfileName.isChildOf(configsRoot, gameConfigDir)) {
+            return false;
+        }
         if (!LegacyProfileName.isValid(profileName)) {
             return false;
         }

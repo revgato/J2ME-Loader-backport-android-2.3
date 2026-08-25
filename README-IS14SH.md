@@ -53,6 +53,13 @@ Mở ứng dụng, chọn `Install JAR/JAD`, duyệt `/sdcard`, rồi chạm gam
 catalog. JAD phải trỏ đến JAR ở cùng thư mục bằng tên tương đối; URL
 `http://`, `https://`, scheme khác, đường dẫn tuyệt đối và `..` đều bị từ chối.
 
+Trên launcher, phím Menu mở `Settings` và `Profiles`. Settings dùng file
+`legacy-preferences` (giữ màn hình sáng, status bar và rung; thay đổi áp dụng
+ở lần chạy MIDlet kế tiếp). Trong Profiles có thể tạo, sửa, đổi tên, xóa có
+xác nhận, đặt/bỏ mặc định; giữ game để mở editor riêng. Editor chỉ ghi khi
+nhấn `Save` hoặc `Save & Play`; Back chỉ bỏ bản nháp. Profile mặc định chỉ
+được bootstrap cho game chưa có `config.json` hoặc `config.xml`.
+
 Dữ liệu giữ nguyên tương thích với bản cũ:
 
 ```text

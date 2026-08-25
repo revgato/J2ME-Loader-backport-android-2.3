@@ -35,6 +35,13 @@ public class LegacyConfigValidationTest {
             // expected
         }
         try {
+            LegacyConfigValidation.validateSystemProperties(repeat('界',
+                    LegacyConfigValidation.MAX_SYSTEM_PROPERTIES));
+            fail("oversized UTF-8 properties should be rejected");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+        try {
             LegacyConfigValidation.validateSystemProperties(repeat('x',
                     LegacyConfigValidation.MAX_SYSTEM_PROPERTIES + 1));
             fail("oversized properties should be rejected");

@@ -25,12 +25,19 @@ public final class LegacyFileStore {
         File temp = temporarySibling(target);
         FileOutputStream output = null;
         Writer writer = null;
+        boolean published = false;
         try {
             output = new FileOutputStream(temp);
             writer = new OutputStreamWriter(output, "UTF-8");
             writer.write(value);
             writer.flush();
             output.getFD().sync();
+        } catch (IOException e) {
+            temp.delete();
+            throw e;
+        } catch (RuntimeException e) {
+            temp.delete();
+            throw e;
         } finally {
             if (writer != null) {
                 writer.close();
@@ -38,7 +45,14 @@ public final class LegacyFileStore {
                 output.close();
             }
         }
-        publish(temp, target);
+        try {
+            publish(temp, target);
+            published = true;
+        } finally {
+            if (!published) {
+                temp.delete();
+            }
+        }
     }
 
     public static void copy(File source, File target) throws IOException {
@@ -48,6 +62,7 @@ public final class LegacyFileStore {
         File temp = temporarySibling(target);
         InputStream input = null;
         OutputStream output = null;
+        boolean published = false;
         try {
             input = new FileInputStream(source);
             output = new FileOutputStream(temp);
@@ -60,11 +75,24 @@ public final class LegacyFileStore {
             }
             output.flush();
             ((FileOutputStream) output).getFD().sync();
+        } catch (IOException e) {
+            temp.delete();
+            throw e;
+        } catch (RuntimeException e) {
+            temp.delete();
+            throw e;
         } finally {
             if (input != null) input.close();
             if (output != null) output.close();
         }
-        publish(temp, target);
+        try {
+            publish(temp, target);
+            published = true;
+        } finally {
+            if (!published) {
+                temp.delete();
+            }
+        }
     }
 
     private static File temporarySibling(File target) throws IOException {

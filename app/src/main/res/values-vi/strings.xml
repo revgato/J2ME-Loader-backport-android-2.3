@@ -185,6 +185,15 @@
     <string name="pref_legacy_storage_category">Bộ nhớ và hồ sơ</string>
     <string name="pref_legacy_restart_summary">Áp dụng khi MIDlet tiếp theo khởi chạy</string>
     <string name="pref_legacy_profiles_summary">Quản lý thiết lập mặc định cho game mới</string>
+    <string name="legacy_clear_default">Bỏ mặc định</string>
+    <string name="legacy_key_mappings">Ánh xạ phím</string>
+    <string name="legacy_key_capture">Nhấn phím vật lý cho %1$s</string>
+    <string name="legacy_key_capture_hint">Back/Menu đóng hộp thoại an toàn</string>
+    <string name="legacy_save_and_play">Lưu và chơi</string>
+    <string name="legacy_discard_changes">Bỏ các thay đổi chưa lưu?</string>
+    <string name="legacy_delete_profile">Xóa hồ sơ %1$s?</string>
+    <string name="legacy_profile_no_config">Hồ sơ chưa có cấu hình</string>
+    <string name="legacy_cannot_rename">Không thể đổi tên hồ sơ</string>
     <string name="mapping_dialog_message">Ánh xạ dòng: %1$s</string>
     <string name="mapping_dialog_key_not_specified">không chỉ định</string>
     <string name="mapping_dialog_title">Bấm một phím</string>

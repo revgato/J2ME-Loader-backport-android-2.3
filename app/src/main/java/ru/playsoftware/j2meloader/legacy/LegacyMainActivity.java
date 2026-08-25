@@ -67,6 +67,12 @@ public final class LegacyMainActivity extends Activity {
         gameAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1);
         list.setAdapter(gameAdapter);
         list.setOnItemClickListener((parent, view, position, id) -> launch(games.get(position)));
+        list.setOnItemLongClickListener((parent, view, position, id) -> {
+            LegacyAppCatalog.Game game = games.get(position);
+            startActivity(LegacyConfigActivity.createGameIntent(this,
+                    game.getDirectory(), game.getName()));
+            return true;
+        });
         root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         refreshCatalog();

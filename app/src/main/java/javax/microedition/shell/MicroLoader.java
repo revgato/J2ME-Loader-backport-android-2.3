@@ -49,10 +49,14 @@ import ru.playsoftware.j2meloader.BuildConfig;
 import ru.playsoftware.j2meloader.config.Config;
 import ru.playsoftware.j2meloader.config.ProfileModel;
 import ru.playsoftware.j2meloader.config.ProfilesManager;
+import ru.playsoftware.j2meloader.legacy.LegacyPreferences;
+import ru.playsoftware.j2meloader.legacy.LegacyProfileStore;
 import ru.playsoftware.j2meloader.config.ShaderInfo;
 import ru.playsoftware.j2meloader.util.FileUtils;
 import ru.playsoftware.j2meloader.util.IOUtils;
 import ru.woesss.j2me.jar.Descriptor;
+
+import static ru.playsoftware.j2meloader.util.Constants.PREF_DEFAULT_PROFILE;
 
 public class MicroLoader {
 	private static final String TAG = MicroLoader.class.getName();
@@ -75,13 +79,25 @@ public class MicroLoader {
 
 	public boolean init() {
 		File config = new File(workDir + Config.MIDLET_CONFIGS_DIR + appDirName);
+		boolean hasExistingConfig = LegacyProfileStore.hasAnyConfig(config);
 		this.params = ProfilesManager.loadConfig(config);
+		if (params == null) {
+			String defaultProfile = LegacyPreferences.get(context)
+					.getString(PREF_DEFAULT_PROFILE, null);
+			try {
+				if (LegacyProfileStore.applyDefaultIfMissing(config, defaultProfile)) {
+					this.params = ProfilesManager.loadConfig(config);
+				}
+			} catch (IOException e) {
+				Log.e(TAG, "Unable to bootstrap default profile", e);
+			}
+		}
 		if (params == null) {
 			if (!config.isDirectory() && !config.mkdirs()) {
 				return false;
 			}
 			params = new ProfileModel(config);
-			if (!ProfilesManager.saveConfig(params)) {
+			if (!hasExistingConfig && !ProfilesManager.saveConfig(params)) {
 				return false;
 			}
 		}

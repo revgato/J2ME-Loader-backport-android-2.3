@@ -17,6 +17,7 @@ import android.text.InputType;
 import android.text.TextWatcher;
 import android.util.SparseIntArray;
 import android.view.View;
+import android.view.KeyEvent;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -54,6 +55,7 @@ public final class LegacyConfigActivity extends Activity {
     private boolean isProfile;
     private boolean newProfile;
     private boolean loading;
+    private boolean initialising = true;
     private boolean dirty;
     private String profileName;
     private String gameName;
@@ -110,6 +112,9 @@ public final class LegacyConfigActivity extends Activity {
             finish();
             return;
         }
+        // Widget callbacks (especially Spinner selection) may fire while the view tree is built.
+        // Keep them out of the draft-change state until the file-backed values are loaded.
+        loading = true;
         buildEditor();
         loadFromDisk();
     }
@@ -153,6 +158,7 @@ public final class LegacyConfigActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+        root.setFocusableInTouchMode(true);
         int pad = dp(8);
         root.setPadding(pad, pad, pad, pad);
         scroll.addView(root);
@@ -257,7 +263,10 @@ public final class LegacyConfigActivity extends Activity {
                 public void onClick(View view) { save(true); }
             });
         }
+        // Do not open the API 10 soft keyboard merely by entering the editor; physical Back
+        // must remain the editor's discard/exit route until the user focuses a field.
         setContentView(scroll);
+        root.requestFocus();
     }
 
     private void loadFromDisk() {
@@ -278,8 +287,20 @@ public final class LegacyConfigActivity extends Activity {
         params.dir = configDir;
         keyboardSource = existingKeyboard(configDir);
         putParams();
-        loading = false;
+        // Keep initialization suppression active until the first window focus. On API 10
+        // Spinner callbacks can be posted after setSelection() returns.
+        loading = true;
         dirty = false;
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && initialising) {
+            initialising = false;
+            loading = false;
+            dirty = false;
+        }
     }
 
     private void putParams() {
@@ -458,6 +479,19 @@ public final class LegacyConfigActivity extends Activity {
                 }).show();
     }
 
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // API 10's EditText/IME can consume Back before Activity.onBackPressed(). Keep the
+        // editor's discard guard reachable from the physical Back key as well.
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0) {
+            onBackPressed();
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
     private EditText edit(LinearLayout parent, int label, int inputType) {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
@@ -529,7 +563,7 @@ public final class LegacyConfigActivity extends Activity {
     };
 
     private void markDirty() {
-        if (!loading) dirty = true;
+        if (!loading && !initialising) dirty = true;
     }
 
     private int integer(EditText field, String name) {

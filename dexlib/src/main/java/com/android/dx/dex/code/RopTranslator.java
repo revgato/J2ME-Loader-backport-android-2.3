@@ -754,6 +754,18 @@ public final class RopTranslator {
                     di = new SimpleInsn(opcode, pos, regs);
                 } else {
                     /*
+                     * Dalvik API 10 verifies narrow field stores against the
+                     * actual byte, char, or short type. JVM bytecode permits
+                     * these stores to consume an int, so narrow the value
+                     * before emitting the corresponding iput-* or sput-*.
+                     */
+                    Dop narrowingOpcode = narrowingOpcodeFor(opcode);
+                    if (narrowingOpcode != null) {
+                        RegisterSpec value = regs.get(0);
+                        addOutput(new SimpleInsn(narrowingOpcode, pos,
+                                RegisterSpecList.make(value, value)));
+                    }
+                    /*
                      * This is the general case for constant-bearing
                      * instructions.
                      */
@@ -812,10 +824,16 @@ public final class RopTranslator {
         private Dop narrowingOpcodeFor(Dop opcode) {
             switch (opcode.getOpcode()) {
                 case Opcodes.APUT_BYTE:
+                case Opcodes.IPUT_BYTE:
+                case Opcodes.SPUT_BYTE:
                     return Dops.INT_TO_BYTE;
                 case Opcodes.APUT_CHAR:
+                case Opcodes.IPUT_CHAR:
+                case Opcodes.SPUT_CHAR:
                     return Dops.INT_TO_CHAR;
                 case Opcodes.APUT_SHORT:
+                case Opcodes.IPUT_SHORT:
+                case Opcodes.SPUT_SHORT:
                     return Dops.INT_TO_SHORT;
                 default:
                     return null;

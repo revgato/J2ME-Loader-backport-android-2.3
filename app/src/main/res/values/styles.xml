@@ -11,6 +11,15 @@
         <item name="android:windowNoTitle">true</item>
     </style>
 
+    <!-- J2ME Form/List/ChoiceGroup views use the MicroActivity theme directly. -->
+    <style name="AppTheme.Midlet" parent="android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorBackground">@color/legacy_screen_background</item>
+        <item name="android:windowBackground">@color/legacy_screen_background</item>
+        <item name="android:textColorPrimary">@color/legacy_screen_text_primary</item>
+        <item name="android:textColorSecondary">@color/legacy_screen_text_secondary</item>
+    </style>
+
     <style name="AppTheme.LegacyScreen" parent="android:style/Theme.Light">
         <item name="android:windowNoTitle">false</item>
         <item name="android:colorBackground">@color/legacy_screen_background</item>

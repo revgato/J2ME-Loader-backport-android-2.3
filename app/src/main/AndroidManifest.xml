@@ -30,6 +30,10 @@
                 <data android:scheme="file" />
             </intent-filter>
         </activity>
+        <service
+            android:name="ru.playsoftware.j2meloader.legacy.LegacyConversionService"
+            android:exported="false"
+            android:process=":converter" />
         <activity
             android:name="ru.playsoftware.j2meloader.legacy.LegacySettingsActivity"
             android:theme="@style/AppTheme.LegacyScreen"

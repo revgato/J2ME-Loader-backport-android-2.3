@@ -52,6 +52,7 @@ import ru.playsoftware.j2meloader.config.ProfilesManager;
 import ru.playsoftware.j2meloader.legacy.LegacyPreferences;
 import ru.playsoftware.j2meloader.legacy.LegacyProfileStore;
 import ru.playsoftware.j2meloader.legacy.LegacyDexRepair;
+import ru.playsoftware.j2meloader.legacy.LegacyDexFiles;
 import ru.playsoftware.j2meloader.config.ShaderInfo;
 import ru.playsoftware.j2meloader.util.FileUtils;
 import ru.playsoftware.j2meloader.util.IOUtils;
@@ -157,15 +158,24 @@ public class MicroLoader {
 
 	MIDlet loadMIDlet(String mainClass) throws ClassNotFoundException, InstantiationException,
 			IllegalAccessException, NoSuchMethodException, InvocationTargetException, IOException {
-		if (BuildConfig.FULL_EMULATOR) {
-			File dexSource = new File(appDir, Config.MIDLET_DEX_FILE);
-			File codeCacheDir = context.getCacheDir();
+        if (BuildConfig.FULL_EMULATOR) {
+            File codeCacheDir = context.getCacheDir();
 			if (codeCacheDir == null) {
 				throw new IOException("DEX cache directory is unavailable");
-			}
-			LegacyDexRepair.Result repair = LegacyDexRepair.prepare(appDir, codeCacheDir);
-			File dexContainer = DexJarCache.create(dexSource, codeCacheDir);
-			String dexPaths = dexContainer.getAbsolutePath();
+            }
+            LegacyDexRepair.Result repair = LegacyDexRepair.prepare(appDir, codeCacheDir);
+            java.util.List<File> dexSources = LegacyDexFiles.list(appDir);
+            StringBuilder dexPathBuilder = new StringBuilder();
+            File firstDexContainer = null;
+            for (int i = 0; i < dexSources.size(); i++) {
+                String cacheName = dexSources.size() == 1 ? "midlet-code.jar"
+                        : "midlet-code-" + (i + 1) + ".jar";
+                File dexContainer = DexJarCache.create(dexSources.get(i), codeCacheDir, cacheName);
+                if (firstDexContainer == null) firstDexContainer = dexContainer;
+                if (dexPathBuilder.length() > 0) dexPathBuilder.append(File.pathSeparator);
+                dexPathBuilder.append(dexContainer.getAbsolutePath());
+            }
+            String dexPaths = dexPathBuilder.toString();
 			if (repair.getStatus() == LegacyDexRepair.Status.READY) {
 				File compatContainer = DexJarCache.create(repair.getCompatDex(), codeCacheDir,
 						"midlet-compat.jar");
@@ -180,7 +190,7 @@ public class MicroLoader {
 			}
 			ClassLoader loader = new AppClassLoader(dexPaths,
 					dexOptDir.getAbsolutePath(), context.getClassLoader(), appDir);
-			Log.i(TAG, "loadMIDlet main: " + mainClass + " from dex cache:" + dexContainer.getPath());
+            Log.i(TAG, "loadMIDlet main: " + mainClass + " from dex cache:" + firstDexContainer.getPath());
 			//noinspection unchecked
 			Class<MIDlet> clazz = (Class<MIDlet>) loader.loadClass(mainClass);
 			Constructor<MIDlet> init = clazz.getDeclaredConstructor();

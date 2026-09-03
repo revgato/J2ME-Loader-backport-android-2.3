@@ -33,7 +33,7 @@ import java.util.zip.ZipOutputStream;
 public final class LegacyDexRepair {
     private static final String COMPAT_DEX = "converted.compat.dex";
     private static final String MARKER = "converted.compat.marker";
-    private static final String MARKER_VERSION = "1";
+    private static final String MARKER_VERSION = "2";
     private static final String STATE_NONE = "NONE";
     private static final String STATE_READY = "READY";
     private static final byte[] DEX035 = new byte[]{'d', 'e', 'x', '\n', '0', '3', '5', 0};
@@ -74,17 +74,17 @@ public final class LegacyDexRepair {
         }
     }
 
-    /** Prepare or reuse the derived DEX beside converted.dex. */
+    /** Prepare or reuse the derived DEX beside the converted DEX parts. */
     public static Result prepare(File appDir, File scratchDir) throws IOException {
         if (appDir == null || scratchDir == null || !appDir.isDirectory()) {
             throw new IOException("MIDlet application directory is missing");
         }
-        File primaryDex = new File(appDir, "converted.dex");
         File resJar = new File(appDir, "res.jar");
-        if (!primaryDex.isFile() || !resJar.isFile()) {
+        java.util.List<File> dexParts = LegacyDexFiles.list(appDir);
+        if (!resJar.isFile()) {
             throw new IOException("MIDlet converted artifacts are incomplete");
         }
-        String primaryFingerprint = fingerprint(primaryDex);
+        String primaryFingerprint = fingerprintParts(dexParts);
         String resFingerprint = fingerprint(resJar);
         File compatDex = new File(appDir, COMPAT_DEX);
         File marker = new File(appDir, MARKER);
@@ -109,7 +109,10 @@ public final class LegacyDexRepair {
         // Validate the complete archive before reading individual entries. This bounds both
         // path handling and decompression work for files copied directly to external storage.
         LegacyArchiveValidator.validate(resJar);
-        Set<String> primaryClasses = readDexClasses(primaryDex);
+        Set<String> primaryClasses = new HashSet<String>();
+        for (File dexPart : dexParts) {
+            primaryClasses.addAll(readDexClasses(dexPart));
+        }
         Map<String, byte[]> repairClasses = findRepairClasses(resJar, primaryClasses);
         if (repairClasses.isEmpty()) {
             LegacyFileStore.writeUtf8(marker, markerText(STATE_NONE, 0, primaryFingerprint,
@@ -198,17 +201,27 @@ public final class LegacyDexRepair {
         }
         InputStream input = zip.getInputStream(entry);
         try {
-            ByteArrayOutputStream output = new ByteArrayOutputStream(
-                    declared > 0 && declared <= MAX_CLASS_BYTES ? (int) declared : 4096);
+            if (declared >= 0 && declared <= MAX_CLASS_BYTES) {
+                byte[] result = new byte[(int) declared];
+                int offset = 0;
+                while (offset < result.length) {
+                    int count = input.read(result, offset, result.length - offset);
+                    if (count < 0) throw new IOException("Truncated class entry: " + entry.getName());
+                    if (count > 0) offset += count;
+                }
+                if (input.read() != -1) {
+                    throw new IOException("Class entry is larger than declared: " + entry.getName());
+                }
+                return result;
+            }
+            ByteArrayOutputStream output = new ByteArrayOutputStream(4096);
             byte[] buffer = new byte[8192];
             int count;
-            int total = 0;
             while ((count = input.read(buffer)) != -1) {
-                if (count > MAX_CLASS_BYTES - total) {
+                if (count > MAX_CLASS_BYTES - output.size()) {
                     throw new IOException("Class entry is too large: " + entry.getName());
                 }
                 output.write(buffer, 0, count);
-                total += count;
             }
             return output.toByteArray();
         } finally {
@@ -237,6 +250,14 @@ public final class LegacyDexRepair {
             result.add(dex.typeNames().get(classDef.getTypeIndex()));
         }
         return result;
+    }
+
+    private static String fingerprintParts(java.util.List<File> dexParts) throws IOException {
+        StringBuilder result = new StringBuilder();
+        for (File dexPart : dexParts) {
+            result.append(dexPart.getName()).append('=').append(fingerprint(dexPart)).append('|');
+        }
+        return result.toString();
     }
 
     private static void verifyClasses(File dexFile, Set<String> expected) throws IOException {

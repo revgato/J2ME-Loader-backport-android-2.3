@@ -18,7 +18,6 @@ package com.android.dx.cf.direct;
 
 import com.android.dex.util.FileUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -238,53 +237,83 @@ public class ClassPathOpener {
      */
     private boolean processArchive(File file) throws IOException {
         ZipFile zip = new ZipFile(file);
-        List<ZipEntry> entriesList = new ArrayList<ZipEntry>();
-        Enumeration<? extends ZipEntry> entries = zip.entries();
-        while (entries.hasMoreElements()) {
-            entriesList.add(entries.nextElement());
-        }
+        try {
+            List<ZipEntry> entriesList = new ArrayList<ZipEntry>();
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                entriesList.add(entries.nextElement());
+            }
 
-        if (sort) {
-            Collections.sort(entriesList, new Comparator<ZipEntry>() {
+            if (sort) {
+                Collections.sort(entriesList, new Comparator<ZipEntry>() {
                @Override
 			   public int compare (ZipEntry a, ZipEntry b) {
 				   return compareClassNames(a.getName(), b.getName());
                }
-            });
-        }
+                });
+            }
 
-        consumer.onProcessArchiveStart(file);
+            consumer.onProcessArchiveStart(file);
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(40000);
-        byte[] buf = new byte[20000];
-        boolean any = false;
+            boolean any = false;
 
-        for (ZipEntry one : entriesList) {
+            for (ZipEntry one : entriesList) {
             final boolean isDirectory = one.isDirectory();
 
             String path = one.getName();
             if (filter.accept(path)) {
                 final byte[] bytes;
                 if (!isDirectory) {
-                    InputStream in = zip.getInputStream(one);
-
-                    baos.reset();
-                    int read;
-                    while ((read = in.read(buf)) != -1) {
-                        baos.write(buf, 0, read);
-                    }
-
-                    in.close();
-                    bytes = baos.toByteArray();
+                    bytes = readEntry(zip, one);
                 } else {
                     bytes = new byte[0];
                 }
 
                 any |= consumer.processFileBytes(path, one.getTime(), bytes);
             }
-        }
+            }
 
-        zip.close();
-        return any;
+            return any;
+        } finally {
+            zip.close();
+        }
+    }
+
+    /** Reads an archive entry into one exact-sized array whenever the ZIP size is trusted. */
+    private static byte[] readEntry(ZipFile zip, ZipEntry entry) throws IOException {
+        long declared = entry.getSize();
+        InputStream in = zip.getInputStream(entry);
+        try {
+            if (declared >= 0 && declared <= Integer.MAX_VALUE) {
+                byte[] result = new byte[(int) declared];
+                int offset = 0;
+                while (offset < result.length) {
+                    int count = in.read(result, offset, result.length - offset);
+                    if (count < 0) {
+                        throw new IOException("Truncated archive entry: " + entry.getName());
+                    }
+                    if (count == 0) {
+                        continue;
+                    }
+                    offset += count;
+                }
+                if (in.read() != -1) {
+                    throw new IOException("Archive entry is larger than declared: " + entry.getName());
+                }
+                return result;
+            }
+
+            // Unknown-size entries are uncommon, but still avoid retaining a reusable buffer
+            // whose capacity is the largest class seen so far.
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream(8192);
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = in.read(buffer)) != -1) {
+                output.write(buffer, 0, count);
+            }
+            return output.toByteArray();
+        } finally {
+            in.close();
+        }
     }
 }

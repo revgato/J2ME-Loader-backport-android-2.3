@@ -54,6 +54,16 @@
     <string name="install">install</string>
     <string name="install_done">Application successfully installed!</string>
     <string name="install_jar_jad">Install JAR/JAD</string>
+    <string name="conversion_title">Converting game</string>
+    <string name="conversion_close">Close</string>
+    <string name="conversion_play">Play</string>
+    <string name="conversion_stage_validating">Validating archive</string>
+    <string name="conversion_stage_batching">Planning class batches</string>
+    <string name="conversion_stage_converting">Converting classes</string>
+    <string name="conversion_stage_publishing">Publishing game</string>
+    <string name="conversion_success">Game installed successfully</string>
+    <string name="conversion_failed">Game conversion failed</string>
+    <string name="conversion_worker_gone">Converter process stopped unexpectedly</string>
     <string name="install_jar_non_matched_jad">This app differs from that described in JAD.\nIgnore JAD and install anyway?</string>
     <string name="install_jar_needed">Select the JAR file</string>
     <string name="invalid_resolution_not_saved">Invalid resolutions: not saved!</string>

@@ -22,7 +22,6 @@ import com.android.dex.util.ByteInput;
 import com.android.dex.util.ByteOutput;
 import com.android.dex.util.FileUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -79,18 +78,22 @@ public final class Dex {
     public Dex(File file) throws IOException {
         if (FileUtils.hasArchiveSuffix(file.getName())) {
             ZipFile zipFile = new ZipFile(file);
-            ZipEntry entry = zipFile.getEntry(DexFormat.DEX_IN_JAR_NAME);
-            if (entry != null) {
-                try (InputStream inputStream = zipFile.getInputStream(entry)) {
-                    loadFrom(inputStream);
+            try {
+                ZipEntry entry = zipFile.getEntry(DexFormat.DEX_IN_JAR_NAME);
+                if (entry != null) {
+                    try (InputStream inputStream = zipFile.getInputStream(entry)) {
+                        loadFrom(inputStream, entry.getSize());
+                    }
+                } else {
+                    throw new DexException("Expected " + DexFormat.DEX_IN_JAR_NAME + " in " + file);
                 }
+            }
+            finally {
                 zipFile.close();
-            } else {
-                throw new DexException("Expected " + DexFormat.DEX_IN_JAR_NAME + " in " + file);
             }
         } else if (file.getName().endsWith(".dex")) {
             try (InputStream inputStream = new FileInputStream(file)) {
-                loadFrom(inputStream);
+                loadFrom(inputStream, file.length());
             }
         } else {
             throw new DexException("unknown output extension: " + file);
@@ -100,16 +103,27 @@ public final class Dex {
     /**
      * It is the caller's responsibility to close {@code in}.
      */
-    private void loadFrom(InputStream in) throws IOException {
-        ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-
-        int count;
-        while ((count = in.read(buffer)) != -1) {
-            bytesOut.write(buffer, 0, count);
+    private void loadFrom(InputStream in, long declaredSize) throws IOException {
+        if (declaredSize < 0 || declaredSize > Integer.MAX_VALUE) {
+            throw new IOException("DEX is too large to load into memory");
+        }
+        byte[] bytes = new byte[(int) declaredSize];
+        int offset = 0;
+        while (offset < bytes.length) {
+            int count = in.read(bytes, offset, bytes.length - offset);
+            if (count < 0) {
+                throw new IOException("Truncated DEX input");
+            }
+            if (count == 0) {
+                continue;
+            }
+            offset += count;
+        }
+        if (in.read() != -1) {
+            throw new IOException("DEX input is larger than declared");
         }
 
-        this.data = ByteBuffer.wrap(bytesOut.toByteArray());
+        this.data = ByteBuffer.wrap(bytes);
         this.data.order(ByteOrder.LITTLE_ENDIAN);
         this.tableOfContents.readFrom(this);
     }

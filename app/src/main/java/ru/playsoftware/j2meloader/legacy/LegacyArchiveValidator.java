@@ -20,11 +20,17 @@ public final class LegacyArchiveValidator {
     public static final long MAX_ARCHIVE_BYTES = 32L * 1024L * 1024L;
     public static final int MAX_ENTRIES = 4096;
     public static final long MAX_UNCOMPRESSED_BYTES = 128L * 1024L * 1024L;
+    public static final long MAX_CLASS_BYTES = 8L * 1024L * 1024L;
 
     private LegacyArchiveValidator() {
     }
 
     public static void validate(File archive) throws IOException {
+        inspect(archive);
+    }
+
+    /** Validates an archive and returns the class count and uncompressed class payload size. */
+    public static ArchiveInfo inspect(File archive) throws IOException {
         if (archive == null || !archive.isFile() || !archive.canRead()) {
             throw new IOException("Archive is not a readable file");
         }
@@ -33,6 +39,8 @@ public final class LegacyArchiveValidator {
         }
 
         long extractedBytes = 0;
+        long classBytes = 0;
+        int classCount = 0;
         int entries = 0;
         ZipFile zip = new ZipFile(archive);
         try {
@@ -53,11 +61,19 @@ public final class LegacyArchiveValidator {
                         || (declared >= 0 && extractedBytes > MAX_UNCOMPRESSED_BYTES - declared)) {
                     throw new IOException("Archive exceeds 128 MiB extracted limit");
                 }
+                boolean classEntry = entry.getName().endsWith(".class");
+                if (classEntry && declared > MAX_CLASS_BYTES) {
+                    throw new IOException("Class entry is too large: " + entry.getName());
+                }
+                if (classEntry) {
+                    classCount++;
+                }
 
                 // Do not trust the central directory size. Reading also catches ZIP bombs
                 // with an unknown or deliberately incorrect uncompressed-size field.
                 InputStream input = zip.getInputStream(entry);
                 try {
+                    long entryBytes = 0;
                     int read;
                     while ((read = input.read(buffer)) != -1) {
                         if (read > 0) {
@@ -65,7 +81,20 @@ public final class LegacyArchiveValidator {
                                 throw new IOException("Archive exceeds 128 MiB extracted limit");
                             }
                             extractedBytes += read;
+                            entryBytes += read;
+                            if (classEntry && entryBytes > MAX_CLASS_BYTES) {
+                                throw new IOException("Class entry is too large: " + entry.getName());
+                            }
+                            if (classEntry) {
+                                if (classBytes > MAX_CLASS_BYTES * (long) MAX_ENTRIES - read) {
+                                    throw new IOException("Archive class payload is too large");
+                                }
+                                classBytes += read;
+                            }
                         }
+                    }
+                    if (declared >= 0 && entryBytes != declared) {
+                        throw new IOException("Truncated archive entry: " + entry.getName());
                     }
                 } finally {
                     input.close();
@@ -73,6 +102,25 @@ public final class LegacyArchiveValidator {
             }
         } finally {
             zip.close();
+        }
+        return new ArchiveInfo(classCount, classBytes);
+    }
+
+    public static final class ArchiveInfo {
+        private final int classCount;
+        private final long classBytes;
+
+        ArchiveInfo(int classCount, long classBytes) {
+            this.classCount = classCount;
+            this.classBytes = classBytes;
+        }
+
+        public int getClassCount() {
+            return classCount;
+        }
+
+        public long getClassBytes() {
+            return classBytes;
         }
     }
 

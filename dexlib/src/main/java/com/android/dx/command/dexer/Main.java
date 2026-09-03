@@ -185,15 +185,20 @@ public class Main {
      * @param argArray the command line arguments
      */
     public static void main(String[] argArray) throws IOException {
-        DxContext context = new DxContext();
+        run(argArray, new DxContext());
+    }
+
+    /** Run dx with a caller-provided context (used by the low-memory installer). */
+    public static int run(String[] argArray, DxContext context) throws IOException {
         Arguments arguments = new Arguments(context);
         arguments.parse(argArray);
 
         int result = new Main(context).runDx(arguments);
 
         if (result != 0) {
-            throw new IOException();
+            throw new IOException("dx failed with exit code " + result);
         }
+        return result;
     }
 
     /**
@@ -229,6 +234,7 @@ public class Main {
     private int runMonoDex() throws IOException {
 
         if (!processAllFiles()) {
+            outputDex = null;
             return 1;
         }
 
@@ -237,6 +243,7 @@ public class Main {
 
         if (!outputDex.isEmpty() || (args.humanOutName != null)) {
             outArray = writeDex(outputDex);
+            outputDex = null;
 
             if (outArray == null) {
                 return 2;
@@ -258,6 +265,8 @@ public class Main {
             out.write(outArray);
             closeOutput(out);
         }
+
+        outputDex = null;
 
         return 0;
     }
@@ -298,13 +307,20 @@ public class Main {
         String[] fileNames = args.fileNames;
         Arrays.sort(fileNames);
 
-        // translate classes in parallel
-        classTranslatorPool = new ThreadPoolExecutor(args.numThreads,
-               args.numThreads, 0, TimeUnit.SECONDS,
-               new ArrayBlockingQueue<Runnable>(2 * args.numThreads, true),
-               new ThreadPoolExecutor.CallerRunsPolicy());
-        // collect translated and write to dex in order
-        classDefItemConsumer = Executors.newSingleThreadExecutor();
+        // A single worker is deliberately completely synchronous. Creating even a one-thread
+        // parser/translator/consumer pipeline retains several class byte arrays at once and
+        // defeats the low-memory mode used on API 10 devices.
+        boolean synchronous = args.numThreads <= 1;
+        if (!synchronous) {
+            classTranslatorPool = new ThreadPoolExecutor(args.numThreads,
+                    args.numThreads, 0, TimeUnit.SECONDS,
+                    new ArrayBlockingQueue<Runnable>(2 * args.numThreads, true),
+                    new ThreadPoolExecutor.CallerRunsPolicy());
+            classDefItemConsumer = Executors.newSingleThreadExecutor();
+        } else {
+            classTranslatorPool = null;
+            classDefItemConsumer = null;
+        }
 
 
         try {
@@ -319,44 +335,48 @@ public class Main {
                  */
             }
 
-            try {
-                classTranslatorPool.shutdown();
-                classTranslatorPool.awaitTermination(600L, TimeUnit.SECONDS);
-                classDefItemConsumer.shutdown();
-                classDefItemConsumer.awaitTermination(600L, TimeUnit.SECONDS);
+            if (!synchronous) {
+                try {
+                    classTranslatorPool.shutdown();
+                    classTranslatorPool.awaitTermination(600L, TimeUnit.SECONDS);
+                    classDefItemConsumer.shutdown();
+                    classDefItemConsumer.awaitTermination(600L, TimeUnit.SECONDS);
 
-                for (Future<Boolean> f : addToDexFutures) {
-                    try {
-                        f.get();
-                    } catch(ExecutionException ex) {
-                        // Catch any previously uncaught exceptions from
-                        // class translation and adding to dex.
-                        int count = errors.incrementAndGet();
-                        if (count < 10) {
-                            if (args.debug) {
-                                context.err.println("Uncaught translation error:");
-                                ex.getCause().printStackTrace(context.err);
+                    for (Future<Boolean> f : addToDexFutures) {
+                        try {
+                            f.get();
+                        } catch (ExecutionException ex) {
+                            // Catch any previously uncaught exceptions from class translation.
+                            int count = errors.incrementAndGet();
+                            if (count < 10) {
+                                if (args.debug) {
+                                    context.err.println("Uncaught translation error:");
+                                    ex.getCause().printStackTrace(context.err);
+                                } else {
+                                    context.err.println("Uncaught translation error: " + ex.getCause());
+                                }
                             } else {
-                                context.err.println("Uncaught translation error: " + ex.getCause());
+                                throw new InterruptedException("Too many errors");
                             }
-                        } else {
-                            throw new InterruptedException("Too many errors");
                         }
                     }
+                } catch (InterruptedException ie) {
+                    throw new RuntimeException("Translation has been interrupted", ie);
+                } catch (Exception e) {
+                    e.printStackTrace(context.out);
+                    throw new RuntimeException("Unexpected exception in translator thread.", e);
                 }
-
-            } catch (InterruptedException ie) {
-                throw new RuntimeException("Translation has been interrupted", ie);
-            } catch (Exception e) {
-                e.printStackTrace(context.out);
-                throw new RuntimeException("Unexpected exception in translator thread.", e);
             }
         } finally {
             // An Error from a caller-runs translation task can bypass the normal shutdown path.
             // Stop both pools and release their Future references before the installer reports
             // the conversion failure, otherwise a 50 MB Dalvik process remains poisoned.
-            classTranslatorPool.shutdownNow();
-            classDefItemConsumer.shutdownNow();
+            if (classTranslatorPool != null) {
+                classTranslatorPool.shutdownNow();
+            }
+            if (classDefItemConsumer != null) {
+                classDefItemConsumer.shutdownNow();
+            }
             addToDexFutures.clear();
         }
 
@@ -446,9 +466,9 @@ public class Main {
                 return true;
             }
             processClass(fixedName, bytes);
-            // Assume that an exception may occur. Status will be updated
-            // asynchronously, if the class compiles without error.
-            return false;
+            // In synchronous mode processClass has already added the class. The threaded path
+            // updates status from ClassDefItemConsumer after translation completes.
+            return args.numThreads <= 1;
         } else {
             synchronized (outputResources) {
                 outputResources.put(fixedName, bytes);
@@ -474,8 +494,17 @@ public class Main {
             // modify byte-code with ASM-java
             bytes = AndroidProducer.instrument(bytes, name);
 
-            new DirectClassFileConsumer(name, bytes, null).call(
-                    new ClassParserTask(name, bytes).call());
+            DirectClassFile cf = new ClassParserTask(name, bytes).call();
+            if (args.numThreads <= 1) {
+                ClassDefItem clazz = translateClass(bytes, cf);
+                if (clazz != null) {
+                    addClassToDex(clazz);
+                    updateStatus(true);
+                    context.classProcessed(name);
+                }
+            } else {
+                new DirectClassFileConsumer(name, bytes, null).call(cf);
+            }
         } catch (ParseException ex) {
             // handled in FileBytesConsumer
             throw ex;
@@ -1410,9 +1439,11 @@ public class Main {
      */
     private class ClassDefItemConsumer implements Callable<Boolean> {
 
+        String name;
         Future<ClassDefItem> futureClazz;
 
         private ClassDefItemConsumer(String name, Future<ClassDefItem> futureClazz) {
+            this.name = name;
             this.futureClazz = futureClazz;
         }
 
@@ -1423,6 +1454,7 @@ public class Main {
                 if (clazz != null) {
                     addClassToDex(clazz);
                     updateStatus(true);
+                    context.classProcessed(name);
                 }
                 return true;
             } catch(ExecutionException ex) {

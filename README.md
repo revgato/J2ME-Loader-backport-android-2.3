@@ -30,7 +30,13 @@ Prefer converting and building each game with J2ME-Loader on a device running a 
 
 1. Install a current J2ME-Loader on the newer Android device.
 2. Import the game's JAR/JAD and run the game once so J2ME-Loader generates its converted artifacts.
-3. Copy the complete `J2ME-Loader/converted/<game>/` directory to the same `converted` directory on the Android 2.3 device. Keep `converted.dex`, `res.jar`, and `converted.dex.conf` together.
+3. Copy the complete `J2ME-Loader/converted/<game>/` directory to the same `converted` directory on the Android 2.3 device. Keep every `converted*.dex` part, `res.jar`, and `converted.dex.conf` together.
+
+The legacy launcher can also convert a local JAR directly. Conversion runs in a private
+`:converter` service process and the modal remains visible until a terminal result. Classes are
+converted sequentially on low-memory devices, then staged in batches of at most 128 classes or
+512 KiB of uncompressed class data. A class larger than 8 MiB is rejected. The modal retains dx
+stdout/stderr and exception details so a failed conversion can be diagnosed without logcat.
 
 When updating an existing game, replace only its directory under `converted`; keep the corresponding directories under `configs` and `data` so that settings and RMS data are preserved.
 
@@ -53,15 +59,20 @@ The backport keeps game data in the following layout for compatibility with exis
 
 ```text
 /sdcard/J2ME-Loader/
-  converted/<game>/converted.dex
+  converted/<game>/converted.dex       # first DEX part (035)
+  converted/<game>/converted.2.dex     # optional additional parts
   converted/<game>/res.jar
-  converted/<game>/converted.dex.conf
+  converted/<game>/converted.dex.conf  # J2ME-Loader-Dex-Count: N
   configs/<game>/...
   data/<game>/...       # RMS data
   fs/...
 ```
 
 Updating a game replaces its directory under `converted` without removing `configs` or `data`, so RMS data survives updates, force-stops, and orientation changes.
+
+Older single-DEX directories remain valid: when the count key is absent, the runtime assumes one
+`converted.dex`. New multi-DEX directories are loaded in numeric order through the API 3
+`DexClassLoader` path separator.
 
 ## Current scope
 

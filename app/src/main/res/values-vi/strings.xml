@@ -225,4 +225,14 @@
     <string name="error_name_exists">Đã tồn tại, nhập tên khác</string>
     <string name="default_label">"%s (mặc định)"</string>
     <string name="not_saved_exists">Đã tồn tại</string>
+    <string name="conversion_title">Đang chuyển đổi game</string>
+    <string name="conversion_close">Đóng</string>
+    <string name="conversion_play">Chơi</string>
+    <string name="conversion_stage_validating">Đang kiểm tra tệp</string>
+    <string name="conversion_stage_batching">Đang chia lô lớp</string>
+    <string name="conversion_stage_converting">Đang chuyển đổi lớp</string>
+    <string name="conversion_stage_publishing">Đang cài đặt game</string>
+    <string name="conversion_success">Cài đặt game thành công</string>
+    <string name="conversion_failed">Chuyển đổi game thất bại</string>
+    <string name="conversion_worker_gone">Tiến trình chuyển đổi dừng bất ngờ</string>
 </resources>

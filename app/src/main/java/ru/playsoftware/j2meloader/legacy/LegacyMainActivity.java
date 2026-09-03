@@ -7,12 +7,19 @@ package ru.playsoftware.j2meloader.legacy;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -20,6 +27,8 @@ import android.view.View;
 import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,8 +36,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import javax.microedition.shell.MicroActivity;
 
@@ -39,10 +46,43 @@ import static ru.playsoftware.j2meloader.util.Constants.KEY_MIDLET_NAME;
 /** Platform-widget launcher used on API 10; no SAF, fragments, database or notification channel. */
 public final class LegacyMainActivity extends Activity {
     private static final int MENU_SETTINGS = 1;
-    private final ExecutorService installerExecutor = Executors.newSingleThreadExecutor();
     private final ArrayList<LegacyAppCatalog.Game> games = new ArrayList<LegacyAppCatalog.Game>();
     private LegacyGameGridAdapter gameAdapter;
     private File emulatorDirectory;
+    private AlertDialog conversionDialog;
+    private TextView conversionStage;
+    private TextView conversionLog;
+    private ProgressBar conversionProgress;
+    private Messenger conversionService;
+    private boolean conversionBound;
+    private boolean conversionTerminal;
+    private File conversionResultDirectory;
+    private String conversionResultName;
+
+    private final Messenger conversionClient = new Messenger(new Handler() {
+        @Override
+        public void handleMessage(Message message) {
+            handleConversionMessage(message);
+        }
+    });
+
+    private final ServiceConnection conversionConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, android.os.IBinder binder) {
+            conversionService = new Messenger(binder);
+            sendConversionStart();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            conversionService = null;
+            conversionBound = false;
+            if (!conversionTerminal) {
+                appendConversionLog("ERROR", getString(R.string.conversion_worker_gone));
+                finishConversion(false, null, null, getString(R.string.conversion_worker_gone));
+            }
+        }
+    };
 
     @Override
     public void onCreate(Bundle state) {
@@ -81,7 +121,10 @@ public final class LegacyMainActivity extends Activity {
     @Override
     protected void onDestroy() {
         gameAdapter.close();
-        installerExecutor.shutdownNow();
+        if (conversionBound) {
+            unbindService(conversionConnection);
+            conversionBound = false;
+        }
         super.onDestroy();
     }
 
@@ -252,24 +295,149 @@ public final class LegacyMainActivity extends Activity {
             Toast.makeText(this, "Only files on the SD-card are supported", Toast.LENGTH_LONG).show();
             return;
         }
-        Toast.makeText(this, "Installing " + source.getName(), Toast.LENGTH_SHORT).show();
-        installerExecutor.submit(new Runnable() {
+        showConversionDialog(source);
+    }
+
+    private void showConversionDialog(final File source) {
+        conversionTerminal = false;
+        pendingSource = source;
+        conversionResultDirectory = null;
+        conversionResultName = null;
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(16), dp(8), dp(16), dp(8));
+        conversionStage = new TextView(this);
+        conversionStage.setText(R.string.conversion_stage_validating);
+        content.addView(conversionStage, new LinearLayout.LayoutParams(-1, -2));
+        conversionProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        conversionProgress.setMax(100);
+        conversionProgress.setProgress(0);
+        content.addView(conversionProgress, new LinearLayout.LayoutParams(-1, dp(24)));
+        ScrollView scroll = new ScrollView(this);
+        conversionLog = new TextView(this);
+        conversionLog.setTextSize(12);
+        scroll.addView(conversionLog, new ScrollView.LayoutParams(-1, -2));
+        content.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        conversionDialog = new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.conversion_title) + ": " + source.getName())
+                .setView(content)
+                .setNegativeButton(R.string.conversion_close, null)
+                .setPositiveButton(R.string.conversion_play, null)
+                .create();
+        conversionDialog.setOnShowListener(new DialogInterface.OnShowListener() {
             @Override
-            public void run() {
-                final InstallResult result = new LegacyInstaller(emulatorDirectory).install(source);
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(LegacyMainActivity.this,
-                                result.isSuccess() ? "Installed " + result.getName()
-                                        : result.getMessage(), Toast.LENGTH_LONG).show();
-                        if (result.isSuccess()) {
-                            refreshCatalog();
-                        }
-                    }
-                });
+            public void onShow(DialogInterface dialog) {
+                conversionDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
+                conversionDialog.getButton(AlertDialog.BUTTON_POSITIVE).setVisibility(View.GONE);
             }
         });
+        conversionDialog.setCancelable(false);
+        conversionDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                if (conversionBound) {
+                    unbindService(conversionConnection);
+                    conversionBound = false;
+                }
+                conversionDialog = null;
+            }
+        });
+        conversionDialog.show();
+
+        Intent intent = new Intent(this, LegacyConversionService.class);
+        conversionBound = bindService(intent, conversionConnection, Context.BIND_AUTO_CREATE);
+        if (!conversionBound) {
+            finishConversion(false, null, null, getString(R.string.conversion_worker_gone));
+        }
+    }
+
+    private void sendConversionStart() {
+        if (conversionService == null || conversionDialog == null) return;
+        try {
+            Message message = Message.obtain();
+            message.what = LegacyConversionService.MSG_START;
+            Bundle data = new Bundle();
+            data.putString(LegacyConversionService.KEY_SOURCE_PATH, pendingSource.getCanonicalPath());
+            message.setData(data);
+            message.replyTo = conversionClient;
+            conversionService.send(message);
+        } catch (Exception e) {
+            finishConversion(false, null, null, e.getMessage());
+        }
+    }
+
+    private File pendingSource;
+
+    private void handleConversionMessage(Message message) {
+        Bundle data = message.getData();
+        if (message.what == LegacyConversionService.MSG_LOG) {
+            appendConversionLog(data.getString(LegacyConversionService.KEY_LEVEL),
+                    data.getString(LegacyConversionService.KEY_TEXT));
+        } else if (message.what == LegacyConversionService.MSG_PROGRESS) {
+            String stage = data.getString(LegacyConversionService.KEY_STAGE);
+            int percent = data.getInt(LegacyConversionService.KEY_PERCENT);
+            if (conversionStage != null) conversionStage.setText(stageLabel(stage));
+            if (conversionProgress != null) conversionProgress.setProgress(percent);
+            String className = data.getString(LegacyConversionService.KEY_CLASS_NAME);
+            if (className != null && className.length() > 0) {
+                appendConversionLog("INFO", data.getInt(LegacyConversionService.KEY_COMPLETED)
+                        + "/" + data.getInt(LegacyConversionService.KEY_TOTAL) + " " + className);
+            }
+        } else if (message.what == LegacyConversionService.MSG_RESULT) {
+            String status = data.getString(LegacyConversionService.KEY_STATUS);
+            boolean success = "INSTALLED".equals(status) || "UPDATED".equals(status);
+            File directory = data.getString(LegacyConversionService.KEY_DIRECTORY) == null ? null
+                    : new File(data.getString(LegacyConversionService.KEY_DIRECTORY));
+            finishConversion(success, directory, data.getString(LegacyConversionService.KEY_NAME),
+                    data.getString(LegacyConversionService.KEY_MESSAGE));
+        }
+    }
+
+    private String stageLabel(String stage) {
+        if ("validating".equals(stage)) return getString(R.string.conversion_stage_validating);
+        if ("batching".equals(stage)) return getString(R.string.conversion_stage_batching);
+        if ("converting".equals(stage)) return getString(R.string.conversion_stage_converting);
+        if ("publishing".equals(stage)) return getString(R.string.conversion_stage_publishing);
+        return stage == null ? "" : stage;
+    }
+
+    private void appendConversionLog(String level, String text) {
+        if (conversionLog == null) return;
+        conversionLog.append("[" + (level == null ? "INFO" : level) + "] "
+                + (text == null ? "" : text) + "\n");
+        final ScrollView parent = (ScrollView) conversionLog.getParent();
+        if (parent != null) parent.post(new Runnable() {
+            @Override public void run() { parent.fullScroll(View.FOCUS_DOWN); }
+        });
+    }
+
+    private void finishConversion(boolean success, File directory, String name, String message) {
+        if (conversionDialog == null || conversionTerminal) return;
+        conversionTerminal = true;
+        conversionResultDirectory = directory;
+        conversionResultName = name;
+        conversionDialog.setCancelable(true);
+        if (conversionStage != null) conversionStage.setText(success
+                ? R.string.conversion_success : R.string.conversion_failed);
+        appendConversionLog(success ? "INFO" : "ERROR", success
+                ? getString(R.string.conversion_success) : (message == null
+                ? getString(R.string.conversion_failed) : message));
+        conversionDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(true);
+        if (success) {
+            conversionDialog.getButton(AlertDialog.BUTTON_POSITIVE).setVisibility(View.VISIBLE);
+            conversionDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View view) {
+                    if (conversionResultDirectory != null) {
+                        refreshCatalog();
+                        launch(new LegacyAppCatalog.Game(conversionResultDirectory.getName(),
+                                conversionResultName, "", "", conversionResultDirectory));
+                    }
+                    conversionDialog.dismiss();
+                }
+            });
+        }
     }
 
     private void launch(LegacyAppCatalog.Game game) {

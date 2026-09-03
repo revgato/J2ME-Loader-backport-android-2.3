@@ -6,6 +6,7 @@
 package ru.playsoftware.j2meloader.legacy;
 
 import com.android.dx.command.dexer.Main;
+import com.android.dx.command.dexer.DxContext;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -15,14 +16,19 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Enumeration;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /**
- * Synchronous local-only installer for the API 10 build. UI code should call this class from
- * an executor and only publish the returned {@link InstallResult} on the UI thread.
+ * Local-only installer for the API 10 build. Conversion may be run in a worker process and
+ * reports progress through the platform-neutral listener.
  */
 public final class LegacyInstaller {
     private static final String JAD_JAR_URL = "MIDlet-Jar-URL";
@@ -32,6 +38,15 @@ public final class LegacyInstaller {
     private static final String DEX = "converted.dex";
     private static final String CONF = "converted.dex.conf";
     private static final String RES = "res.jar";
+    private static final String DEX_COUNT = "J2ME-Loader-Dex-Count";
+    private static final int MAX_BATCH_CLASSES = 128;
+    private static final long MAX_BATCH_BYTES = 512L * 1024L;
+
+    private static final InstallProgressListener NO_OP = new InstallProgressListener() {
+        @Override public void onStage(String stage) { }
+        @Override public void onProgress(int completed, int total, String className) { }
+        @Override public void onLog(String level, String message) { }
+    };
 
     private final File emulatorDirectory;
     private final DexConverter converter;
@@ -50,14 +65,27 @@ public final class LegacyInstaller {
 
     /** Install a local .jar or .jad and return a structured result instead of throwing UI errors. */
     public InstallResult install(File source) {
+        return install(source, NO_OP);
+    }
+
+    /** Install while reporting stages, class progress and converter diagnostics. */
+    public InstallResult install(File source, InstallProgressListener progress) {
+        if (progress == null) {
+            progress = NO_OP;
+        }
         File temp = null;
         File backup = null;
         try {
+            progress.onStage("validating");
+            progress.onLog("INFO", "Validating source archive");
             if (source == null || !source.isFile()) {
                 return InstallResult.rejected("Source is not a file");
             }
             File jar = resolveJar(source);
-            LegacyArchiveValidator.validate(jar);
+            LegacyArchiveValidator.ArchiveInfo archiveInfo = LegacyArchiveValidator.inspect(jar);
+            progress.onLog("INFO", "Archive contains " + archiveInfo.getClassCount()
+                    + " class file(s)");
+            progress.onLog("INFO", "Reading MIDlet manifest");
             Descriptor descriptor = readDescriptor(jar);
             if (descriptor.name.length() == 0) {
                 return InstallResult.rejected("JAR has no MIDlet-Name");
@@ -74,11 +102,12 @@ public final class LegacyInstaller {
             temp = new File(converted, ".tmp-" + Long.toHexString(System.currentTimeMillis())
                     + "-" + Integer.toHexString(System.identityHashCode(source)));
             ensureDirectory(temp);
-            File dex = new File(temp, DEX);
-            converter.convert(jar, dex);
-            assertDex035(dex);
+            progress.onStage("batching");
+            int dexCount = convertBatches(jar, temp, archiveInfo.getClassCount(), progress);
+            progress.onLog("INFO", "Copying game resources");
             copyFile(jar, new File(temp, RES));
-            writeDescriptor(new File(temp, CONF), descriptor);
+            progress.onStage("publishing");
+            writeDescriptor(new File(temp, CONF), descriptor, dexCount);
 
             if (target.exists()) {
                 backup = new File(converted, ".backup-" + target.getName());
@@ -98,17 +127,23 @@ public final class LegacyInstaller {
                 deleteRecursively(backup);
             }
             temp = null;
+            progress.onLog("INFO", "Published " + descriptor.name + " (" + dexCount
+                    + " DEX part(s))");
             return InstallResult.success(update ? InstallResult.Status.UPDATED
                             : InstallResult.Status.INSTALLED,
                     target, descriptor.name, descriptor.vendor, descriptor.version);
         } catch (SecurityException e) {
+            progress.onLog("ERROR", exceptionText("security", e));
             return InstallResult.rejected(e.getMessage());
         } catch (IOException e) {
+            progress.onLog("ERROR", exceptionText("io", e));
             return InstallResult.failed(e.getMessage());
         } catch (OutOfMemoryError e) {
+            progress.onLog("ERROR", exceptionText("out-of-memory", e));
             return InstallResult.failed("Not enough memory to convert this game");
         } catch (RuntimeException e) {
             String message = e.getMessage();
+            progress.onLog("ERROR", exceptionText("runtime", e));
             return InstallResult.failed(message == null ? "Game conversion failed" : message);
         } finally {
             if (temp != null) {
@@ -122,6 +157,140 @@ public final class LegacyInstaller {
                 }
             }
         }
+    }
+
+    private int convertBatches(File jar, File temp, int totalClasses,
+            InstallProgressListener progress) throws IOException {
+        if (totalClasses == 0) {
+            // Keep the historical converter contract for synthetic/empty fixtures. A real dx
+            // invocation will still reject an archive with no classes, while custom converters
+            // used by embedders retain the old install(File) behaviour.
+            File dex = new File(temp, DEX);
+            converter.convert(jar, dex);
+            assertDex035(dex);
+            progress.onProgress(0, 0, "no classes");
+            return 1;
+        }
+        ZipFile zip = new ZipFile(jar);
+        int batchNumber = 0;
+        int completedClasses = 0;
+        int batchClasses = 0;
+        long batchBytes = 0;
+        File batchJar = null;
+        JarOutputStream batchOutput = null;
+        try {
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (entry.isDirectory() || !entry.getName().endsWith(".class")) {
+                    continue;
+                }
+                long entryBytes = entry.getSize();
+                if (entryBytes < 0) {
+                    entryBytes = 0;
+                }
+                if (batchOutput == null || (batchClasses > 0
+                        && (batchClasses >= MAX_BATCH_CLASSES
+                        || batchBytes + entryBytes > MAX_BATCH_BYTES))) {
+                    if (batchOutput != null) {
+                        batchOutput.close();
+                        batchOutput = null;
+                        completedClasses = convertBatch(batchJar, temp, batchNumber,
+                                completedClasses, totalClasses, progress);
+                        deleteRecursively(batchJar);
+                    }
+                    batchNumber++;
+                    batchClasses = 0;
+                    batchBytes = 0;
+                    batchJar = new File(temp, ".class-batch-" + batchNumber + ".jar");
+                    batchOutput = new JarOutputStream(new FileOutputStream(batchJar));
+                }
+                ZipEntry outputEntry = new ZipEntry(entry.getName());
+                outputEntry.setTime(entry.getTime());
+                batchOutput.putNextEntry(outputEntry);
+                InputStream input = zip.getInputStream(entry);
+                try {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = input.read(buffer)) != -1) {
+                        batchOutput.write(buffer, 0, read);
+                    }
+                } finally {
+                    input.close();
+                }
+                batchOutput.closeEntry();
+                batchClasses++;
+                batchBytes += entryBytes;
+            }
+            if (batchOutput != null) {
+                batchOutput.close();
+                completedClasses = convertBatch(batchJar, temp, batchNumber,
+                        completedClasses, totalClasses, progress);
+                deleteRecursively(batchJar);
+            }
+            return batchNumber;
+        } finally {
+            if (batchOutput != null) {
+                batchOutput.close();
+            }
+            if (batchJar != null && batchJar.exists()) {
+                deleteRecursively(batchJar);
+            }
+            zip.close();
+        }
+    }
+
+    private int convertBatch(File batchJar, File temp, int batchNumber,
+            int completedClasses, int totalClasses, InstallProgressListener progress)
+            throws IOException {
+        File dex = new File(temp, batchNumber == 1 ? DEX : "converted." + batchNumber + ".dex");
+        progress.onStage("converting");
+        progress.onLog("INFO", "Converting class batch " + batchNumber);
+        try {
+            if (converter instanceof DxDexConverter) {
+                ((DxDexConverter) converter).convert(batchJar, dex, progress,
+                        completedClasses, totalClasses);
+            } else {
+                converter.convert(batchJar, dex);
+            }
+        } catch (IOException e) {
+            progress.onLog("ERROR", "phase=converting batch=" + batchNumber + ": "
+                    + exceptionText("io", e));
+            throw e;
+        } catch (OutOfMemoryError e) {
+            progress.onLog("ERROR", "phase=converting batch=" + batchNumber + ": "
+                    + exceptionText("out-of-memory", e));
+            throw e;
+        } catch (RuntimeException e) {
+            progress.onLog("ERROR", "phase=converting batch=" + batchNumber + ": "
+                    + exceptionText("runtime", e));
+            throw e;
+        }
+        try {
+            assertDex035(dex);
+        } catch (IOException e) {
+            progress.onLog("ERROR", "phase=verify-dex batch=" + batchNumber + ": "
+                    + exceptionText("io", e));
+            throw e;
+        }
+        int next = completedClasses + countClasses(batchJar);
+        progress.onProgress(next, totalClasses, "batch " + batchNumber);
+        return next;
+    }
+
+    private static int countClasses(File jar) throws IOException {
+        int count = 0;
+        ZipFile zip = new ZipFile(jar);
+        try {
+            Enumeration<? extends ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (!entry.isDirectory() && entry.getName().endsWith(".class")) count++;
+            }
+        } finally {
+            zip.close();
+        }
+        return count;
     }
 
     private File resolveJar(File source) throws IOException {
@@ -205,13 +374,17 @@ public final class LegacyInstaller {
         return candidate.getName();
     }
 
-    private static void writeDescriptor(File file, Descriptor descriptor) throws IOException {
+    private static void writeDescriptor(File file, Descriptor descriptor, int dexCount) throws IOException {
         OutputStream output = new FileOutputStream(file);
         try {
             for (Map.Entry<String, String> entry : descriptor.attributes.entrySet()) {
+                if (DEX_COUNT.equals(entry.getKey())) {
+                    continue;
+                }
                 String text = entry.getKey() + ": " + entry.getValue() + "\n";
                 output.write(text.getBytes("UTF-8"));
             }
+            output.write((DEX_COUNT + ": " + dexCount + "\n").getBytes("UTF-8"));
         } finally {
             output.close();
         }
@@ -279,6 +452,12 @@ public final class LegacyInstaller {
         }
     }
 
+    private static String exceptionText(String phase, Throwable error) {
+        String message = error.getMessage();
+        return phase + ": " + error.getClass().getName()
+                + (message == null ? "" : ": " + message);
+    }
+
     private static void deleteRecursively(File file) {
         if (file == null || !file.exists()) {
             return;
@@ -301,12 +480,69 @@ public final class LegacyInstaller {
     private static final class DxDexConverter implements DexConverter {
         @Override
         public void convert(File jar, File dex) throws IOException {
+            convert(jar, dex, NO_OP, 0, 0);
+        }
+
+        void convert(File jar, File dex, final InstallProgressListener progress,
+                final int completed, final int total) throws IOException {
             String[] args = dexArguments(jar, dex);
-            // Main.main parses the min-sdk flag and throws when dx cannot produce an output.
-            Main.main(args);
+            OutputStream out = new LineOutputStream(progress, "INFO");
+            OutputStream err = new LineOutputStream(progress, "ERROR");
+            final int[] processed = new int[]{completed};
+            DxContext context = new DxContext(out, err, new DxContext.ProgressListener() {
+                @Override
+                public void onClassProcessed(String className) {
+                    progress.onProgress(++processed[0], total, className);
+                }
+            });
+            try {
+                Main.run(args, context);
+            } finally {
+                try {
+                    out.close();
+                } finally {
+                    err.close();
+                }
+            }
             if (!dex.isFile()) {
                 throw new IOException("dx did not produce a DEX file");
             }
+        }
+    }
+
+    private static final class LineOutputStream extends OutputStream {
+        private final InstallProgressListener listener;
+        private final String level;
+        private final ByteArrayOutputStream line = new ByteArrayOutputStream();
+
+        LineOutputStream(InstallProgressListener listener, String level) {
+            this.listener = listener;
+            this.level = level;
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+            if (value == '\n') {
+                flushLine();
+            } else if (value != '\r') {
+                line.write(value);
+            }
+        }
+
+        @Override
+        public void flush() throws IOException {
+            flushLine();
+        }
+
+        @Override
+        public void close() throws IOException {
+            flushLine();
+        }
+
+        private void flushLine() {
+            if (line.size() == 0) return;
+            listener.onLog(level, new String(line.toByteArray()));
+            line.reset();
         }
     }
 

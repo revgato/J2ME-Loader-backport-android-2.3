@@ -160,6 +160,7 @@ dependencies {
 
     // Tests
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.ow2.asm:asm:5.2'
 }
 
 /** Release gate for the old Dalvik loader: one 035 dex and no native payload. */

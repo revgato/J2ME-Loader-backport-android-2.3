@@ -29,6 +29,11 @@ After every dx invocation, the converter releases its graph/output references, c
 This cleanup runs on success, I/O failure, and OOM so a retry or later installation does not inherit
 the previous conversion's heap state.
 
+The dx backend emits an explicit `int-to-byte`, `int-to-char`, or `int-to-short` before the
+corresponding narrow array store. JVM `bastore`, `castore`, and `sastore` accept a category-1
+`int`, but API 10's verifier requires the source register to carry the narrowed element type; the
+extra instruction keeps old obfuscated MIDlets loadable without changing their behavior.
+
 ## Consequences
 
 - Conversion memory is bounded by one class plus the current dx structures, and a game conversion

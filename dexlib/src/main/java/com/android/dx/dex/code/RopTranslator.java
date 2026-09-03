@@ -785,10 +785,41 @@ public final class RopTranslator {
 
             addOutput(lastAddress);
 
+            /*
+             * Dalvik API 10 verifies the source of the narrow array-store
+             * opcodes as the actual element type. The JVM bytecode verifier
+             * permits bastore, castore, and sastore to consume an int (and old
+             * obfuscators commonly emit that form), so dx can otherwise produce
+             * aput-* instructions whose source is still typed as int. Narrow the
+             * consumed value in place immediately before the store. The value
+             * is a stack temporary and is dead after this instruction, so this
+             * does not change the observable value or its later uses.
+             */
+            RegisterSpecList regs = getRegs(insn, realResult);
+            Dop narrowingOpcode = narrowingOpcodeFor(opcode);
+            if (narrowingOpcode != null) {
+                RegisterSpec value = regs.get(0);
+                addOutput(new SimpleInsn(narrowingOpcode, pos,
+                        RegisterSpecList.make(value, value)));
+            }
+
             DalvInsn di = new SimpleInsn(opcode, pos,
-                    getRegs(insn, realResult));
+                    regs);
 
             addOutput(di);
+        }
+
+        private Dop narrowingOpcodeFor(Dop opcode) {
+            switch (opcode.getOpcode()) {
+                case Opcodes.APUT_BYTE:
+                    return Dops.INT_TO_BYTE;
+                case Opcodes.APUT_CHAR:
+                    return Dops.INT_TO_CHAR;
+                case Opcodes.APUT_SHORT:
+                    return Dops.INT_TO_SHORT;
+                default:
+                    return null;
+            }
         }
 
         /** {@inheritDoc} */

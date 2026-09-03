@@ -42,6 +42,11 @@ committed only after a valid version-035 file is written. dx's graph and intern 
 between batches, including failed attempts. The modal retains dx stdout/stderr and exception
 details so a failed conversion can be diagnosed without logcat.
 
+For API 10's strict bytecode verifier, dx also inserts explicit `int-to-byte`, `int-to-char`, or
+`int-to-short` before the corresponding narrow array store. This preserves JVM `bastore`, `castore`,
+and `sastore` semantics for older obfuscated classes that leave the value as an `int`, while keeping
+the generated DEX 035 format unchanged.
+
 When updating an existing game, replace only its directory under `converted`; keep the corresponding directories under `configs` and `data` so that settings and RMS data are preserved.
 
 ## Installing and running a game

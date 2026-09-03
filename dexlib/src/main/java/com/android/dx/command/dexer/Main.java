@@ -228,6 +228,10 @@ public class Main {
             return runMonoDex();
         } finally {
             closeOutput(humanOutRaw);
+            // Do not retain a partially translated graph if parsing, translation or writing
+            // throws (including an OutOfMemoryError on old Dalvik heaps).
+            outputDex = null;
+            outputResources = null;
         }
     }
 

@@ -118,6 +118,36 @@ public class LegacyInstallerTest {
     }
 
     @Test
+    public void failedUpdateKeepsPreviousConvertedDirectory() throws Exception {
+        File root = tempDirectory();
+        File firstJar = createJar("StableDemo", "Fixture", "1.0");
+        LegacyInstaller installer = new LegacyInstaller(root, new FakeConverter());
+        InstallResult first = installer.install(firstJar);
+        File oldDex = new File(first.getAppDirectory(), "converted.dex");
+        byte[] before = read(oldDex);
+
+        File update = createJar("StableDemo", "Fixture", "2.0");
+        LegacyInstaller failing = new LegacyInstaller(root, new LegacyInstaller.DexConverter() {
+            @Override public void convert(File source, File dex) throws java.io.IOException {
+                throw new java.io.IOException("update failed");
+            }
+        });
+        InstallResult result = failing.install(update);
+
+        assertEquals(InstallResult.Status.FAILED, result.getStatus());
+        assertTrue(oldDex.isFile());
+        assertEquals(new String(before, "ISO-8859-1"), new String(read(oldDex), "ISO-8859-1"));
+        File converted = new File(root, "converted");
+        String[] children = converted.list();
+        for (String child : children) {
+            assertFalse(child.startsWith(".tmp-") || child.startsWith(".backup-"));
+        }
+        delete(root);
+        firstJar.delete();
+        update.delete();
+    }
+
+    @Test
     public void dxArgumentsUseLowMemorySettings() throws Exception {
         File jar = new File("/tmp/game.jar");
         File dex = new File("/tmp/game.dex");
@@ -126,6 +156,25 @@ public class LegacyInstallerTest {
                 "--no-optimize --no-locals --positions=none --num-threads=1 --core-library "
                         + "--min-sdk-version=10 --output=/tmp/game.dex /tmp/game.jar",
                 join(LegacyInstaller.dexArguments(jar, dex)));
+    }
+
+    @Test
+    public void splitsLargeClassSetAndRecordsDexPartCount() throws Exception {
+        File root = tempDirectory();
+        File jar = createJarWithClasses("ManyClasses", "Fixture", "1.0", 129);
+        LegacyInstaller installer = new LegacyInstaller(root, new FakeConverter());
+
+        InstallResult result = installer.install(jar);
+
+        assertEquals(InstallResult.Status.INSTALLED, result.getStatus());
+        File app = result.getAppDirectory();
+        assertTrue(new File(app, "converted.dex").isFile());
+        assertTrue(new File(app, "converted.2.dex").isFile());
+        assertTrue(readText(new File(app, "converted.dex.conf"))
+                .indexOf("J2ME-Loader-Dex-Count: 2") >= 0);
+        assertFalse(new File(app, ".class-batch-1.jar").exists());
+        delete(root);
+        jar.delete();
     }
 
     private static File createJar(String name, String vendor, String version) throws Exception {
@@ -143,6 +192,38 @@ public class LegacyInstallerTest {
         zip.closeEntry();
         zip.close();
         return jar;
+    }
+
+    private static File createJarWithClasses(String name, String vendor, String version,
+            int classCount) throws Exception {
+        File jar = createJar(name, vendor, version);
+        File replacement = File.createTempFile("legacy-installer-classes-", ".jar");
+        java.util.jar.JarFile source = new java.util.jar.JarFile(jar);
+        java.util.jar.JarOutputStream output = new java.util.jar.JarOutputStream(
+                new FileOutputStream(replacement));
+        try {
+            java.util.Enumeration<java.util.jar.JarEntry> entries = source.entries();
+            while (entries.hasMoreElements()) {
+                java.util.jar.JarEntry entry = entries.nextElement();
+                output.putNextEntry(new ZipEntry(entry.getName()));
+                java.io.InputStream input = source.getInputStream(entry);
+                byte[] buffer = new byte[1024];
+                int read;
+                while ((read = input.read(buffer)) != -1) output.write(buffer, 0, read);
+                input.close();
+                output.closeEntry();
+            }
+            for (int i = 0; i < classCount; i++) {
+                output.putNextEntry(new ZipEntry("com/example/C" + i + ".class"));
+                output.write(new byte[]{0, 1, 2});
+                output.closeEntry();
+            }
+        } finally {
+            output.close();
+            source.close();
+            jar.delete();
+        }
+        return replacement;
     }
 
     private static void write(File file, String value) throws Exception {

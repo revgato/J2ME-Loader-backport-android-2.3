@@ -30,6 +30,7 @@ public class Constants {
 	public static final String PREF_DEFAULT_PROFILE = "default_profile";
 	public static final String PREF_EMULATOR_DIR = "emulator_dir";
 	public static final String PREF_KEEP_SCREEN = "pref_wakelock_switch";
+	public static final String PREF_KEEP_ONLINE_SCREEN_OFF = "pref_keep_online_screen_off";
 	public static final String PREF_LAST_PATH = "pref_last_path";
 	public static final String PREF_STATUSBAR = "pref_statusbar_switch";
 	public static final String PREF_ADD_CUTOUT_AREA = "pref_add_cutout_area";

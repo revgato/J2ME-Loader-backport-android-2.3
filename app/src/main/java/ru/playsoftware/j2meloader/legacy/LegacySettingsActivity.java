@@ -16,6 +16,7 @@ import ru.playsoftware.j2meloader.R;
 import ru.playsoftware.j2meloader.config.Config;
 
 import static ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_SCREEN;
+import static ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_ONLINE_SCREEN_OFF;
 import static ru.playsoftware.j2meloader.util.Constants.PREF_STATUSBAR;
 import static ru.playsoftware.j2meloader.util.Constants.PREF_VIBRATION;
 
@@ -33,6 +34,8 @@ public final class LegacySettingsActivity extends PreferenceActivity {
         screen.addPreference(runtime);
         runtime.addPreference(checkBox(PREF_KEEP_SCREEN, R.string.pref_wakelock_title,
                 R.string.pref_legacy_keep_screen_summary, false));
+        runtime.addPreference(checkBox(PREF_KEEP_ONLINE_SCREEN_OFF, R.string.pref_keep_online_title,
+                R.string.pref_legacy_keep_online_summary, false));
         runtime.addPreference(checkBox(PREF_STATUSBAR, R.string.pref_enable_statusbar_title,
                 R.string.pref_legacy_statusbar_summary, false));
         runtime.addPreference(checkBox(PREF_VIBRATION, R.string.pref_vibration_title,

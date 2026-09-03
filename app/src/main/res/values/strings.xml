@@ -237,6 +237,8 @@
     <string name="pref_legacy_config_keyboard_feedback_summary">Vibrate when a virtual keyboard key is pressed.</string>
     <string name="pref_legacy_config_keyboard_opacity_summary">Keep virtual keys opaque when they overlap the game screen.</string>
     <string name="pref_legacy_keep_screen_summary">Prevent the display from sleeping while a MIDlet runs</string>
+    <string name="pref_keep_online_title">Keep game online when the screen is off</string>
+    <string name="pref_legacy_keep_online_summary">Keep the MIDlet running and Wi-Fi active while the screen is off; uses more battery</string>
     <string name="pref_legacy_statusbar_summary">Show the Android status bar while a MIDlet runs</string>
     <string name="pref_legacy_vibration_summary">Enable vibration for keyboard and MIDlet feedback</string>
     <string name="pref_legacy_profiles_summary">Manage default settings for new games</string>

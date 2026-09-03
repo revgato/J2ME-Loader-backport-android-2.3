@@ -32,6 +32,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -47,6 +48,7 @@ public final class LegacyMainActivity extends Activity {
     private static final int MENU_SETTINGS = 1;
     private final ArrayList<LegacyAppCatalog.Game> games = new ArrayList<LegacyAppCatalog.Game>();
     private LegacyGameGridAdapter gameAdapter;
+    private FileLegacyAppCatalog appCatalog;
     private File emulatorDirectory;
     private AlertDialog conversionDialog;
     private TextView conversionStage;
@@ -87,6 +89,7 @@ public final class LegacyMainActivity extends Activity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         emulatorDirectory = new File(Environment.getExternalStorageDirectory(), "J2ME-Loader");
+        appCatalog = new FileLegacyAppCatalog(emulatorDirectory);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getResources().getColor(R.color.background));
@@ -107,9 +110,7 @@ public final class LegacyMainActivity extends Activity {
         grid.setAdapter(gameAdapter);
         grid.setOnItemClickListener((parent, view, position, id) -> launch(games.get(position)));
         grid.setOnItemLongClickListener((parent, view, position, id) -> {
-            LegacyAppCatalog.Game game = games.get(position);
-            startActivity(LegacyConfigActivity.createGameIntent(this,
-                    game.getDirectory(), game.getName()));
+            showGameActions(games.get(position));
             return true;
         });
         root.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -178,6 +179,50 @@ public final class LegacyMainActivity extends Activity {
         return toolbar;
     }
 
+    private void showGameActions(final LegacyAppCatalog.Game game) {
+        new AlertDialog.Builder(this)
+                .setTitle(game.getName())
+                .setItems(new String[]{
+                        getString(R.string.action_settings),
+                        getString(R.string.action_context_delete)
+                }, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (which == 0) {
+                            startActivity(LegacyConfigActivity.createGameIntent(
+                                    LegacyMainActivity.this, game.getDirectory(), game.getName()));
+                        } else if (which == 1) {
+                            confirmDelete(game);
+                        }
+                    }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    private void confirmDelete(final LegacyAppCatalog.Game game) {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.action_context_delete)
+                .setMessage(getString(R.string.message_delete) + "\n\n" + game.getName())
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        deleteGame(game);
+                    }
+                })
+                .show();
+    }
+
+    private void deleteGame(LegacyAppCatalog.Game game) {
+        try {
+            appCatalog.delete(game);
+            refreshCatalog();
+        } catch (IOException e) {
+            Toast.makeText(this, R.string.error_disk_io, Toast.LENGTH_LONG).show();
+        }
+    }
+
     private ImageButton toolbarAction(int icon, int description) {
         ImageButton button = new ImageButton(this);
         button.setImageResource(icon);
@@ -192,7 +237,7 @@ public final class LegacyMainActivity extends Activity {
     private void refreshCatalog() {
         try {
             ArrayList<LegacyAppCatalog.Game> scanned = new ArrayList<LegacyAppCatalog.Game>(
-                    new FileLegacyAppCatalog(emulatorDirectory).scan());
+                    appCatalog.scan());
             games.clear();
             games.addAll(scanned);
             gameAdapter.setGames(scanned);

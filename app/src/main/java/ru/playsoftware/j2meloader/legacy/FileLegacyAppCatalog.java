@@ -29,6 +29,19 @@ public final class FileLegacyAppCatalog implements LegacyAppCatalog {
         return convertedDirectory;
     }
 
+    /** Removes one installed game directory without touching sibling data stores. */
+    void delete(Game game) throws IOException {
+        if (game == null || game.getDirectory() == null) {
+            throw new IOException("Game directory is missing");
+        }
+        File root = convertedDirectory.getCanonicalFile();
+        File target = game.getDirectory().getCanonicalFile();
+        if (!target.isDirectory() || root.equals(target) || !root.equals(target.getParentFile())) {
+            throw new IOException("Game directory is outside converted");
+        }
+        deleteRecursively(target);
+    }
+
     @Override
     public List<Game> scan() throws IOException {
         ArrayList<Game> games = new ArrayList<Game>();
@@ -111,5 +124,20 @@ public final class FileLegacyAppCatalog implements LegacyAppCatalog {
 
     private static String valueOrEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private static void deleteRecursively(File file) throws IOException {
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children == null) {
+                throw new IOException("Cannot read game directory: " + file);
+            }
+            for (File child : children) {
+                deleteRecursively(child);
+            }
+        }
+        if (file.exists() && !file.delete()) {
+            throw new IOException("Cannot delete game file: " + file);
+        }
     }
 }

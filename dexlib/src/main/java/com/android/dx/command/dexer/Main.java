@@ -36,8 +36,12 @@ import com.android.dx.dex.file.EncodedMethod;
 import com.android.dx.rop.annotation.Annotation;
 import com.android.dx.rop.annotation.Annotations;
 import com.android.dx.rop.annotation.AnnotationsList;
+import com.android.dx.rop.code.RegisterSpec;
 import com.android.dx.rop.cst.CstNat;
 import com.android.dx.rop.cst.CstString;
+import com.android.dx.rop.cst.CstType;
+import com.android.dx.rop.type.Prototype;
+import com.android.dx.rop.type.Type;
 
 import org.microemu.android.asm.AndroidProducer;
 
@@ -227,11 +231,22 @@ public class Main {
         try {
             return runMonoDex();
         } finally {
-            closeOutput(humanOutRaw);
-            // Do not retain a partially translated graph if parsing, translation or writing
-            // throws (including an OutOfMemoryError on old Dalvik heaps).
-            outputDex = null;
-            outputResources = null;
+            try {
+                closeOutput(humanOutRaw);
+            } finally {
+                // Do not retain a partially translated graph if parsing, translation or writing
+                // throws (including an OutOfMemoryError on old Dalvik heaps). The nested finally
+                // also guarantees cleanup when closing the human-readable output fails.
+                outputDex = null;
+                outputResources = null;
+                // dx interns types, prototypes, constants, and register specs globally. Those
+                // tables are useful during one conversion but otherwise retain the entire input
+                // graph on the small Dalvik heap used by the legacy API 10 build.
+                RegisterSpec.clearInternTable();
+                Prototype.clearInternTable();
+                CstType.clearInternTable();
+                Type.clearInternTable();
+            }
         }
     }
 

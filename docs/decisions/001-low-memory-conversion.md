@@ -15,10 +15,19 @@ The converter uses a genuinely synchronous dx path when `--num-threads=1`. Archi
 files with a known size are read into one exact-sized array, avoiding the temporary
 `ByteArrayOutputStream.toByteArray()` copy that exhausted the IS14SH heap.
 
-Class files are staged into batches of at most 512 KiB uncompressed data or 128 classes. A class
-larger than 8 MiB is rejected; larger games produce `converted.dex`, `converted.2.dex`, and so on.
-`converted.dex.conf` records `J2ME-Loader-Dex-Count: N`. The runtime loads all parts in numeric order
-using the API 3 `DexClassLoader` path separator.
+Class files are staged into batches of at most 256 KiB uncompressed data or 64 classes. A class
+larger than 8 MiB is rejected; a class larger than the batch limit is kept in its own batch.
+If dx reports `OutOfMemoryError`, the failed DEX is removed and that batch is bisected by class
+payload size, preserving archive order, until conversion succeeds or one named class still cannot
+be converted. `converted.dex`, `converted.2.dex`, and so on are committed only after each DEX has
+been written and verified as version 035. `converted.dex.conf` records
+`J2ME-Loader-Dex-Count: N`. The runtime loads all parts in numeric order using the API 3
+`DexClassLoader` path separator.
+
+After every dx invocation, the converter releases its graph/output references, clears the
+`RegisterSpec`, `Prototype`, `CstType`, and `Type` intern tables, and requests garbage collection.
+This cleanup runs on success, I/O failure, and OOM so a retry or later installation does not inherit
+the previous conversion's heap state.
 
 ## Consequences
 

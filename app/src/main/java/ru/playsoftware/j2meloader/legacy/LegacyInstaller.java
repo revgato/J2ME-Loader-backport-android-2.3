@@ -17,7 +17,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Enumeration;
 import java.util.jar.JarFile;
@@ -39,14 +41,28 @@ public final class LegacyInstaller {
     private static final String CONF = "converted.dex.conf";
     private static final String RES = "res.jar";
     private static final String DEX_COUNT = "J2ME-Loader-Dex-Count";
-    private static final int MAX_BATCH_CLASSES = 128;
-    private static final long MAX_BATCH_BYTES = 512L * 1024L;
+    private static final int MAX_BATCH_CLASSES = 64;
+    private static final long MAX_BATCH_BYTES = 256L * 1024L;
 
     private static final InstallProgressListener NO_OP = new InstallProgressListener() {
         @Override public void onStage(String stage) { }
         @Override public void onProgress(int completed, int total, String className) { }
         @Override public void onLog(String level, String message) { }
     };
+
+    private static final class BatchFile {
+        final File file;
+        final int classCount;
+        final long byteCount;
+        final String firstClassName;
+
+        BatchFile(File file, int classCount, long byteCount, String firstClassName) {
+            this.file = file;
+            this.classCount = classCount;
+            this.byteCount = byteCount;
+            this.firstClassName = firstClassName;
+        }
+    }
 
     private final File emulatorDirectory;
     private final DexConverter converter;
@@ -171,13 +187,49 @@ public final class LegacyInstaller {
             progress.onProgress(0, 0, "no classes");
             return 1;
         }
-        ZipFile zip = new ZipFile(jar);
-        int batchNumber = 0;
+
+        List<BatchFile> pending = stageBatches(jar, temp);
         int completedClasses = 0;
+        int dexCount = 0;
+        int retryNumber = 0;
+        while (!pending.isEmpty()) {
+            BatchFile batch = pending.remove(0);
+            int dexNumber = dexCount + 1;
+            try {
+                completedClasses = convertBatch(batch, temp, dexNumber,
+                        completedClasses, totalClasses, progress);
+            } catch (OutOfMemoryError e) {
+                deleteRecursively(dexFile(temp, dexNumber));
+                releaseDxMemory();
+                if (batch.classCount <= 1) {
+                    throw new IOException("Not enough memory to convert class "
+                            + batch.firstClassName, e);
+                }
+                BatchFile[] split = splitBatch(batch, temp, ++retryNumber);
+                deleteRecursively(batch.file);
+                progress.onLog("ERROR", "Out of memory for batch with "
+                        + batch.classCount + " classes; retrying as "
+                        + split[0].classCount + " + " + split[1].classCount);
+                pending.add(0, split[1]);
+                pending.add(0, split[0]);
+                continue;
+            }
+            dexCount++;
+            deleteRecursively(batch.file);
+            releaseDxMemory();
+        }
+        return dexCount;
+    }
+
+    private List<BatchFile> stageBatches(File jar, File temp) throws IOException {
+        List<BatchFile> batches = new ArrayList<BatchFile>();
+        ZipFile zip = new ZipFile(jar);
+        JarOutputStream batchOutput = null;
+        File batchJar = null;
+        int batchNumber = 0;
         int batchClasses = 0;
         long batchBytes = 0;
-        File batchJar = null;
-        JarOutputStream batchOutput = null;
+        String firstClassName = null;
         try {
             Enumeration<? extends ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
@@ -187,110 +239,183 @@ public final class LegacyInstaller {
                 }
                 long entryBytes = entry.getSize();
                 if (entryBytes < 0) {
-                    entryBytes = 0;
+                    // An unknown-size entry starts a batch by itself. This preserves the
+                    // one-class escape hatch while keeping known entries tightly bounded.
+                    entryBytes = batchClasses == 0 ? 0 : MAX_BATCH_BYTES + 1;
                 }
                 if (batchOutput == null || (batchClasses > 0
                         && (batchClasses >= MAX_BATCH_CLASSES
                         || batchBytes + entryBytes > MAX_BATCH_BYTES))) {
                     if (batchOutput != null) {
-                        batchOutput.close();
+                        JarOutputStream closing = batchOutput;
                         batchOutput = null;
-                        completedClasses = convertBatch(batchJar, temp, batchNumber,
-                                completedClasses, totalClasses, progress);
-                        deleteRecursively(batchJar);
+                        closing.close();
+                        batches.add(new BatchFile(batchJar, batchClasses, batchBytes,
+                                firstClassName));
                     }
                     batchNumber++;
                     batchClasses = 0;
                     batchBytes = 0;
+                    firstClassName = entry.getName();
                     batchJar = new File(temp, ".class-batch-" + batchNumber + ".jar");
                     batchOutput = new JarOutputStream(new FileOutputStream(batchJar));
                 }
+                if (firstClassName == null) firstClassName = entry.getName();
                 ZipEntry outputEntry = new ZipEntry(entry.getName());
                 outputEntry.setTime(entry.getTime());
                 batchOutput.putNextEntry(outputEntry);
-                InputStream input = zip.getInputStream(entry);
-                try {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = input.read(buffer)) != -1) {
-                        batchOutput.write(buffer, 0, read);
-                    }
-                } finally {
-                    input.close();
-                }
+                long copied = copyEntry(zip, entry, batchOutput);
                 batchOutput.closeEntry();
                 batchClasses++;
-                batchBytes += entryBytes;
+                batchBytes += copied;
             }
             if (batchOutput != null) {
-                batchOutput.close();
-                completedClasses = convertBatch(batchJar, temp, batchNumber,
-                        completedClasses, totalClasses, progress);
-                deleteRecursively(batchJar);
+                JarOutputStream closing = batchOutput;
+                batchOutput = null;
+                closing.close();
+                batches.add(new BatchFile(batchJar, batchClasses, batchBytes, firstClassName));
             }
-            return batchNumber;
+            return batches;
         } finally {
             if (batchOutput != null) {
                 batchOutput.close();
             }
-            if (batchJar != null && batchJar.exists()) {
+            if (batchJar != null && batchOutput != null && batchJar.exists()) {
                 deleteRecursively(batchJar);
             }
             zip.close();
         }
     }
 
-    private int convertBatch(File batchJar, File temp, int batchNumber,
+    private BatchFile[] splitBatch(BatchFile batch, File temp, int retryNumber)
+            throws IOException {
+        ZipFile zip = new ZipFile(batch.file);
+        List<ZipEntry> entries = new ArrayList<ZipEntry>();
+        try {
+            Enumeration<? extends ZipEntry> sourceEntries = zip.entries();
+            while (sourceEntries.hasMoreElements()) {
+                ZipEntry entry = sourceEntries.nextElement();
+                if (!entry.isDirectory() && entry.getName().endsWith(".class")) {
+                    entries.add(entry);
+                }
+            }
+            if (entries.size() < 2) {
+                throw new IOException("Cannot split a single-class conversion batch");
+            }
+            int splitAt = chooseSplit(entries);
+            File first = new File(temp, ".class-batch-retry-" + retryNumber + "-1.jar");
+            File second = new File(temp, ".class-batch-retry-" + retryNumber + "-2.jar");
+            BatchFile left = writeBatchPart(zip, entries, 0, splitAt, first);
+            BatchFile right = writeBatchPart(zip, entries, splitAt, entries.size(), second);
+            return new BatchFile[]{left, right};
+        } finally {
+            zip.close();
+        }
+    }
+
+    private static int chooseSplit(List<ZipEntry> entries) {
+        long total = 0;
+        for (ZipEntry entry : entries) {
+            if (entry.getSize() > 0) total += entry.getSize();
+        }
+        long target = total / 2;
+        long prefix = 0;
+        long bestDistance = Long.MAX_VALUE;
+        int best = entries.size() / 2;
+        for (int i = 1; i < entries.size(); i++) {
+            long size = entries.get(i - 1).getSize();
+            if (size > 0) prefix += size;
+            long distance = Math.abs(prefix - target);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    private static BatchFile writeBatchPart(ZipFile zip, List<ZipEntry> entries,
+            int start, int end, File file) throws IOException {
+        JarOutputStream output = new JarOutputStream(new FileOutputStream(file));
+        long bytes = 0;
+        try {
+            for (int i = start; i < end; i++) {
+                ZipEntry entry = entries.get(i);
+                ZipEntry copy = new ZipEntry(entry.getName());
+                copy.setTime(entry.getTime());
+                output.putNextEntry(copy);
+                bytes += copyEntry(zip, entry, output);
+                output.closeEntry();
+            }
+        } finally {
+            output.close();
+        }
+        return new BatchFile(file, end - start, bytes, entries.get(start).getName());
+    }
+
+    private static long copyEntry(ZipFile zip, ZipEntry entry, OutputStream output)
+            throws IOException {
+        InputStream input = zip.getInputStream(entry);
+        long copied = 0;
+        try {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+                copied += read;
+            }
+            return copied;
+        } finally {
+            input.close();
+        }
+    }
+
+    private static File dexFile(File temp, int dexNumber) {
+        return new File(temp, dexNumber == 1 ? DEX : "converted." + dexNumber + ".dex");
+    }
+
+    private static void releaseDxMemory() {
+        System.gc();
+    }
+
+    private int convertBatch(BatchFile batch, File temp, int dexNumber,
             int completedClasses, int totalClasses, InstallProgressListener progress)
             throws IOException {
-        File dex = new File(temp, batchNumber == 1 ? DEX : "converted." + batchNumber + ".dex");
+        File dex = dexFile(temp, dexNumber);
+        deleteRecursively(dex);
+        boolean complete = false;
         progress.onStage("converting");
-        progress.onLog("INFO", "Converting class batch " + batchNumber);
+        progress.onLog("INFO", "Converting class batch " + dexNumber + " ("
+                + batch.classCount + " classes, " + batch.byteCount + " bytes)");
         try {
             if (converter instanceof DxDexConverter) {
-                ((DxDexConverter) converter).convert(batchJar, dex, progress,
+                ((DxDexConverter) converter).convert(batch.file, dex, progress,
                         completedClasses, totalClasses);
             } else {
-                converter.convert(batchJar, dex);
+                converter.convert(batch.file, dex);
             }
+            assertDex035(dex);
+            int next = completedClasses + batch.classCount;
+            progress.onProgress(next, totalClasses, "batch " + dexNumber);
+            complete = true;
+            return next;
         } catch (IOException e) {
-            progress.onLog("ERROR", "phase=converting batch=" + batchNumber + ": "
+            progress.onLog("ERROR", "phase=converting/verify-dex batch=" + dexNumber + ": "
                     + exceptionText("io", e));
             throw e;
         } catch (OutOfMemoryError e) {
-            progress.onLog("ERROR", "phase=converting batch=" + batchNumber + ": "
+            progress.onLog("ERROR", "phase=converting batch=" + dexNumber + ": "
                     + exceptionText("out-of-memory", e));
             throw e;
         } catch (RuntimeException e) {
-            progress.onLog("ERROR", "phase=converting batch=" + batchNumber + ": "
+            progress.onLog("ERROR", "phase=converting batch=" + dexNumber + ": "
                     + exceptionText("runtime", e));
             throw e;
-        }
-        try {
-            assertDex035(dex);
-        } catch (IOException e) {
-            progress.onLog("ERROR", "phase=verify-dex batch=" + batchNumber + ": "
-                    + exceptionText("io", e));
-            throw e;
-        }
-        int next = completedClasses + countClasses(batchJar);
-        progress.onProgress(next, totalClasses, "batch " + batchNumber);
-        return next;
-    }
-
-    private static int countClasses(File jar) throws IOException {
-        int count = 0;
-        ZipFile zip = new ZipFile(jar);
-        try {
-            Enumeration<? extends ZipEntry> entries = zip.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (!entry.isDirectory() && entry.getName().endsWith(".class")) count++;
-            }
         } finally {
-            zip.close();
+            if (!complete) {
+                deleteRecursively(dex);
+            }
         }
-        return count;
     }
 
     private File resolveJar(File source) throws IOException {
@@ -488,11 +613,13 @@ public final class LegacyInstaller {
             String[] args = dexArguments(jar, dex);
             OutputStream out = new LineOutputStream(progress, "INFO");
             OutputStream err = new LineOutputStream(progress, "ERROR");
-            final int[] processed = new int[]{completed};
             DxContext context = new DxContext(out, err, new DxContext.ProgressListener() {
                 @Override
                 public void onClassProcessed(String className) {
-                    progress.onProgress(++processed[0], total, className);
+                    // A class is committed only after the complete batch has produced and
+                    // passed DEX 035 validation. Reporting the committed prefix during dx
+                    // keeps retries from moving progress backwards or counting a class twice.
+                    progress.onProgress(completed, total, className);
                 }
             });
             try {

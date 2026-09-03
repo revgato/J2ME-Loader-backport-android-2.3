@@ -34,9 +34,13 @@ Prefer converting and building each game with J2ME-Loader on a device running a 
 
 The legacy launcher can also convert a local JAR directly. Conversion runs in a private
 `:converter` service process and the modal remains visible until a terminal result. Classes are
-converted sequentially on low-memory devices, then staged in batches of at most 128 classes or
-512 KiB of uncompressed class data. A class larger than 8 MiB is rejected. The modal retains dx
-stdout/stderr and exception details so a failed conversion can be diagnosed without logcat.
+converted sequentially on low-memory devices, then staged in batches of at most 64 classes or
+256 KiB of uncompressed class data. A class larger than 8 MiB is rejected. If dx runs out of
+memory, the failed batch is removed and split into two ordered, near-equal payloads; splitting
+continues until it succeeds or a single unconvertible class is reported by name. DEX progress is
+committed only after a valid version-035 file is written. dx's graph and intern tables are cleared
+between batches, including failed attempts. The modal retains dx stdout/stderr and exception
+details so a failed conversion can be diagnosed without logcat.
 
 When updating an existing game, replace only its directory under `converted`; keep the corresponding directories under `configs` and `data` so that settings and RMS data are preserved.
 

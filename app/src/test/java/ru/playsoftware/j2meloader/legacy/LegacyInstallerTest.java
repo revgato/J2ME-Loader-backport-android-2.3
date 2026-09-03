@@ -170,8 +170,9 @@ public class LegacyInstallerTest {
         File app = result.getAppDirectory();
         assertTrue(new File(app, "converted.dex").isFile());
         assertTrue(new File(app, "converted.2.dex").isFile());
+        assertTrue(new File(app, "converted.3.dex").isFile());
         assertTrue(readText(new File(app, "converted.dex.conf"))
-                .indexOf("J2ME-Loader-Dex-Count: 2") >= 0);
+                .indexOf("J2ME-Loader-Dex-Count: 3") >= 0);
         assertFalse(new File(app, ".class-batch-1.jar").exists());
         delete(root);
         jar.delete();

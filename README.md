@@ -51,10 +51,10 @@ When updating an existing game, replace only its directory under `converted`; ke
 
 ## Installing and running a game
 
-Build output is written to `app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.3.apk`.
+Build output is written to `app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.4.apk`.
 
 ```sh
-adb install -r app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.3.apk
+adb install -r app/build/outputs/apk/release/J2ME-Loader-Android-2.3-1.8.4.apk
 adb shell mkdir -p /sdcard/J2ME-Loader/incoming
 adb push game.jar /sdcard/J2ME-Loader/incoming/
 adb push game.jad /sdcard/J2ME-Loader/incoming/   # optional

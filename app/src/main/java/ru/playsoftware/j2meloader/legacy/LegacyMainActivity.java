@@ -19,7 +19,6 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Messenger;
-import android.os.RemoteException;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -426,11 +425,11 @@ public final class LegacyMainActivity extends Activity {
                 ? getString(R.string.conversion_failed) : message));
         conversionDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(true);
         if (success) {
+            refreshCatalog();
             conversionDialog.getButton(AlertDialog.BUTTON_POSITIVE).setVisibility(View.VISIBLE);
             conversionDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(new View.OnClickListener() {
                 @Override public void onClick(View view) {
                     if (conversionResultDirectory != null) {
-                        refreshCatalog();
                         launch(new LegacyAppCatalog.Game(conversionResultDirectory.getName(),
                                 conversionResultName, "", "", conversionResultDirectory));
                     }

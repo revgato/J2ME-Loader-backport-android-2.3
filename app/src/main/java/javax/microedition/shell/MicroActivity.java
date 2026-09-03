@@ -10,10 +10,15 @@ import static ru.playsoftware.j2meloader.util.Constants.KEY_START_ARGUMENTS;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.wifi.WifiManager;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
@@ -38,6 +43,7 @@ import ru.playsoftware.j2meloader.databinding.ActivityMicroBinding;
 import ru.playsoftware.j2meloader.legacy.LegacyPreferences;
 
 import static ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_SCREEN;
+import static ru.playsoftware.j2meloader.util.Constants.PREF_KEEP_ONLINE_SCREEN_OFF;
 import static ru.playsoftware.j2meloader.util.Constants.PREF_STATUSBAR;
 import static ru.playsoftware.j2meloader.util.Constants.PREF_VIBRATION;
 
@@ -54,6 +60,8 @@ public class MicroActivity extends Activity {
     private MicroLoader microLoader;
     private String appName;
     private String appPath;
+    private ScreenOffRuntime screenOffRuntime;
+    private BroadcastReceiver screenStateReceiver;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -67,6 +75,10 @@ public class MicroActivity extends Activity {
         if (preferences.getBoolean(PREF_KEEP_SCREEN, false)) {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+        screenOffRuntime = new ScreenOffRuntime(
+                preferences.getBoolean(PREF_KEEP_ONLINE_SCREEN_OFF, false),
+                new AndroidScreenLocks());
+        registerScreenStateReceiver();
         ContextHolder.setVibration(preferences.getBoolean(PREF_VIBRATION, true));
         ContextHolder.setCurrentActivity(this);
         binding = ActivityMicroBinding.inflate(getLayoutInflater());
@@ -105,14 +117,47 @@ public class MicroActivity extends Activity {
     protected void onResume() {
         super.onResume();
         visible = true;
+        if (screenOffRuntime != null) {
+            screenOffRuntime.onScreenOn();
+        }
         MidletThread.resumeApp();
     }
 
     @Override
     protected void onPause() {
         visible = false;
-        MidletThread.pauseApp();
+        boolean screenOn = true;
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        if (powerManager != null) {
+            screenOn = powerManager.isScreenOn();
+        }
+        if (screenOffRuntime == null || screenOffRuntime.shouldPauseOnActivityPause(screenOn)) {
+            MidletThread.pauseApp();
+        }
         super.onPause();
+    }
+
+    private void registerScreenStateReceiver() {
+        // ACTION_SCREEN_OFF/ON can only be received by an explicitly registered receiver.
+        // Source: https://developer.android.com/reference/android/content/Intent#ACTION_SCREEN_OFF
+        screenStateReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(android.content.Context context, Intent intent) {
+                if (screenOffRuntime == null) {
+                    return;
+                }
+                String action = intent.getAction();
+                if (Intent.ACTION_SCREEN_OFF.equals(action)) {
+                    screenOffRuntime.onScreenOff();
+                } else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+                    screenOffRuntime.onScreenOn();
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        registerReceiver(screenStateReceiver, filter);
     }
 
     private void loadMIDlet() throws Exception {
@@ -248,8 +293,64 @@ public class MicroActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (screenStateReceiver != null) {
+            unregisterReceiver(screenStateReceiver);
+            screenStateReceiver = null;
+        }
+        if (screenOffRuntime != null) {
+            screenOffRuntime.close();
+            screenOffRuntime = null;
+        }
         MidletThread.notifyDestroyed();
         binding = null;
         super.onDestroy();
+    }
+
+    @SuppressWarnings("deprecation")
+    private final class AndroidScreenLocks implements ScreenOffRuntime.Locks {
+        private PowerManager.WakeLock cpuWakeLock;
+        private WifiManager.WifiLock wifiLock;
+
+        @Override
+        public void acquire() {
+            // PARTIAL_WAKE_LOCK keeps the CPU running while the screen may turn off.
+            // Source: https://developer.android.com/reference/android/os/PowerManager#PARTIAL_WAKE_LOCK
+            if (cpuWakeLock == null) {
+                PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+                if (powerManager != null) {
+                    cpuWakeLock = powerManager.newWakeLock(
+                            PowerManager.PARTIAL_WAKE_LOCK, "J2ME-Loader:Midlet");
+                    cpuWakeLock.setReferenceCounted(false);
+                }
+            }
+            if (cpuWakeLock != null && !cpuWakeLock.isHeld()) {
+                cpuWakeLock.acquire();
+            }
+
+            if (wifiLock == null) {
+                WifiManager wifiManager = (WifiManager) getApplicationContext()
+                        .getSystemService(WIFI_SERVICE);
+                if (wifiManager != null) {
+                    // WIFI_MODE_FULL is the API 10 lock mode used by this legacy build.
+                    // Source: https://developer.android.com/reference/android/net/wifi/WifiManager.WifiLock
+                    wifiLock = wifiManager.createWifiLock(
+                            WifiManager.WIFI_MODE_FULL, "J2ME-Loader:Midlet");
+                    wifiLock.setReferenceCounted(false);
+                }
+            }
+            if (wifiLock != null && !wifiLock.isHeld()) {
+                wifiLock.acquire();
+            }
+        }
+
+        @Override
+        public void release() {
+            if (wifiLock != null && wifiLock.isHeld()) {
+                wifiLock.release();
+            }
+            if (cpuWakeLock != null && cpuWakeLock.isHeld()) {
+                cpuWakeLock.release();
+            }
+        }
     }
 }

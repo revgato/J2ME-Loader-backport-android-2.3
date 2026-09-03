@@ -38,6 +38,9 @@ import com.android.dx.rop.code.ThrowingCstInsn;
 import com.android.dx.rop.code.ThrowingInsn;
 import com.android.dx.rop.cst.Constant;
 import com.android.dx.rop.cst.CstInteger;
+import com.android.dx.rop.cst.CstBaseMethodRef;
+import com.android.dx.rop.type.StdTypeList;
+import com.android.dx.rop.type.Type;
 import com.android.dx.util.Bits;
 import com.android.dx.util.IntList;
 import java.util.ArrayList;
@@ -726,6 +729,7 @@ public final class RopTranslator {
 
             if (rop.isCallLike()) {
                 RegisterSpecList regs = insn.getSources();
+                addNarrowingConversionsForInvoke(opcode, cst, regs, pos);
                 DalvInsn di = new CstInsn(opcode, pos, regs, cst);
 
                 addOutput(di);
@@ -834,6 +838,53 @@ public final class RopTranslator {
                 case Opcodes.APUT_SHORT:
                 case Opcodes.IPUT_SHORT:
                 case Opcodes.SPUT_SHORT:
+                    return Dops.INT_TO_SHORT;
+                default:
+                    return null;
+            }
+        }
+
+        /**
+         * Dalvik API 10 also verifies narrow primitive invoke arguments using
+         * their exact byte, char, or short type. JVM bytecode uses one int
+         * verification category for all of these values, so an obfuscated
+         * class can legally pass an int-producing expression to a method whose
+         * descriptor contains a narrow parameter. Narrow those arguments in
+         * place before emitting the invoke instruction.
+         */
+        private void addNarrowingConversionsForInvoke(Dop opcode, Constant cst,
+                RegisterSpecList regs, SourcePosition pos) {
+            if (!(cst instanceof CstBaseMethodRef)) {
+                return;
+            }
+
+            CstBaseMethodRef methodRef = (CstBaseMethodRef) cst;
+            boolean isStatic = (opcode.getFamily() == Opcodes.INVOKE_STATIC);
+            StdTypeList parameterTypes = methodRef.getPrototype(isStatic)
+                    .getParameterTypes();
+            int count = Math.min(parameterTypes.size(), regs.size());
+
+            for (int i = 0; i < count; i++) {
+                RegisterSpec value = regs.get(i);
+                Dop narrowingOpcode = narrowingOpcodeFor(parameterTypes.get(i), value);
+                if (narrowingOpcode != null) {
+                    addOutput(new SimpleInsn(narrowingOpcode, pos,
+                            RegisterSpecList.make(value, value)));
+                }
+            }
+        }
+
+        private Dop narrowingOpcodeFor(Type expectedType, RegisterSpec value) {
+            if (value.getType().getBasicType() != Type.BT_INT) {
+                return null;
+            }
+
+            switch (expectedType.getBasicType()) {
+                case Type.BT_BYTE:
+                    return Dops.INT_TO_BYTE;
+                case Type.BT_CHAR:
+                    return Dops.INT_TO_CHAR;
+                case Type.BT_SHORT:
                     return Dops.INT_TO_SHORT;
                 default:
                     return null;

@@ -36,6 +36,8 @@ public class DalvikNarrowFieldStoreTest {
     private static final int INT_TO_BYTE = 0x8d;
     private static final int INT_TO_CHAR = 0x8e;
     private static final int INT_TO_SHORT = 0x8f;
+    private static final int INVOKE_STATIC = 0x71;
+    private static final int INVOKE_STATIC_RANGE = 0x77;
 
     @Test
     public void narrowsJvmFieldStoresBeforeIputAndSput() throws Exception {
@@ -80,6 +82,42 @@ public class DalvikNarrowFieldStoreTest {
             assertEquals(1, counts[3]);
             assertEquals(1, counts[4]);
             assertEquals(1, counts[5]);
+        } finally {
+            delete(root);
+        }
+    }
+
+    @Test
+    public void narrowsJvmInvokeArgumentsBeforeStaticCall() throws Exception {
+        File root = tempDirectory();
+        try {
+            File jar = new File(root, "narrow-invoke-argument.jar");
+            File dex = new File(root, "narrow-invoke-argument.dex");
+            writeJar(jar, "compat/PrimitiveInvoke.class", primitiveInvokeClass());
+
+            ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+            ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+            try {
+                Main.run(LegacyInstaller.dexArguments(jar, dex),
+                        new com.android.dx.command.dexer.DxContext(stdout, stderr));
+            } catch (IOException error) {
+                throw new IOException("dx output: " + stdout + " " + stderr, error);
+            }
+
+            int conversionsBeforeInvoke = 0;
+            for (Code code : findCodeItems(new Dex(dex))) {
+                short[] instructions = code.getInstructions();
+                for (int i = 1; i < instructions.length; i++) {
+                    int opcode = instructions[i] & 0xff;
+                    if (opcode == INVOKE_STATIC || opcode == INVOKE_STATIC_RANGE) {
+                        if ((instructions[i - 1] & 0xff) == INT_TO_SHORT) {
+                            conversionsBeforeInvoke++;
+                        }
+                    }
+                }
+            }
+            assertEquals("short invoke argument must be narrowed immediately before call",
+                    1, conversionsBeforeInvoke);
         } finally {
             delete(root);
         }
@@ -135,6 +173,33 @@ public class DalvikNarrowFieldStoreTest {
         emitStaticStore(writer, owner, "staticByte", "B");
         emitStaticStore(writer, owner, "staticChar", "C");
         emitStaticStore(writer, owner, "staticShort", "S");
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] primitiveInvokeClass() {
+        ClassWriter writer = new ClassWriter(0);
+        String owner = "compat/PrimitiveInvoke";
+        writer.visit(Opcodes.V1_5, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
+                owner, null, "java/lang/Object", null);
+
+        MethodVisitor consume = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                "consume", "(SJ)V", null, null);
+        consume.visitCode();
+        consume.visitInsn(Opcodes.RETURN);
+        consume.visitMaxs(0, 3);
+        consume.visitEnd();
+
+        MethodVisitor invoke = writer.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                "invoke", "()V", null, null);
+        invoke.visitCode();
+        invoke.visitIntInsn(Opcodes.BIPUSH, 123);
+        invoke.visitLdcInsn(Long.valueOf(7L));
+        invoke.visitMethodInsn(Opcodes.INVOKESTATIC, owner, "consume", "(SJ)V", false);
+        invoke.visitInsn(Opcodes.RETURN);
+        invoke.visitMaxs(3, 0);
+        invoke.visitEnd();
+
         writer.visitEnd();
         return writer.toByteArray();
     }

@@ -39,3 +39,5 @@ captures/
 .externalNativeBuild
 .cxx
 keystore.properties
+.DS_Store
+*.code-workspace

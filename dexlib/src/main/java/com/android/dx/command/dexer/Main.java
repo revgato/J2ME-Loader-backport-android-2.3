@@ -527,6 +527,11 @@ public class Main {
         } catch (ParseException ex) {
             // handled in FileBytesConsumer
             throw ex;
+        } catch (OutOfMemoryError ex) {
+            context.err.println("out-of-memory: phase=converting class=" + name
+                    + " free=" + Runtime.getRuntime().freeMemory() + " max="
+                    + Runtime.getRuntime().maxMemory());
+            throw ex;
         } catch(IllegalArgumentException e) {
             e.printStackTrace();
         } catch(Exception ex) {

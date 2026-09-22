@@ -372,6 +372,14 @@ public class CfTranslator {
                 String msg = "...while processing " + one.getName().toHuman() +
                     " " + one.getDescriptor().toHuman();
                 throw ExceptionWithContext.withContext(ex, msg);
+            } catch (OutOfMemoryError ex) {
+                context.err.println("out-of-memory: phase=translating class="
+                        + thisClass.getClassType().toHuman() + " method="
+                        + one.getName().toHuman() + " "
+                        + one.getDescriptor().toHuman() + " free="
+                        + Runtime.getRuntime().freeMemory() + " max="
+                        + Runtime.getRuntime().maxMemory());
+                throw ex;
             }
         }
     }

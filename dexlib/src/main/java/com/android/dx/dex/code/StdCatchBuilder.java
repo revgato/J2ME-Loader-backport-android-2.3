@@ -34,18 +34,12 @@ public final class StdCatchBuilder implements CatchBuilder {
     /** the maximum range of a single catch handler, in code units */
     private static final int MAX_CATCH_RANGE = 65535;
 
-    /** {@code non-null;} method to build the list for */
-    private final RopMethod method;
-
-    /** {@code non-null;} block output order */
-    private final int[] order;
-
-    /** {@code non-null;} address objects for each block */
-    private final BlockAddresses addresses;
+    /** {@code non-null;} compact catch metadata captured from the ROP graph */
+    private final CatchBlock[] blocks;
 
     /**
-     * Constructs an instance. It merely holds onto its parameters for
-     * a subsequent call to {@link #build}.
+     * Constructs an instance. The ROP graph is inspected immediately and only
+     * the small amount of metadata needed to build the catch table is kept.
      *
      * @param method {@code non-null;} method to build the list for
      * @param order {@code non-null;} block output order
@@ -65,27 +59,76 @@ public final class StdCatchBuilder implements CatchBuilder {
             throw new NullPointerException("addresses == null");
         }
 
-        this.method = method;
-        this.order = order;
-        this.addresses = addresses;
+        /*
+         * Do not retain the RopMethod, BasicBlockList, output order, or the
+         * full BlockAddresses arrays. A translated class can contain a very
+         * large method, and keeping that graph alive until dex writing used
+         * to make every later method compete with it for the Dalvik heap.
+         * Capture only catch-relevant block data while the graph is available.
+         * CodeAddress instances are also present in the output instruction
+         * list, so retaining the handful used by catches does not retain the
+         * ROP graph.
+         */
+        this.blocks = snapshot(method, order, addresses);
     }
 
     /** {@inheritDoc} */
     @Override
-	public CatchTable build() {
-        return build(method, order, addresses);
+    public CatchTable build() {
+        ArrayList<CatchTable.Entry> resultList =
+                new ArrayList<CatchTable.Entry>(blocks.length);
+        CatchBlock rangeStart = null;
+        CatchBlock rangeEnd = null;
+
+        for (CatchBlock block : blocks) {
+            if (!block.hasHandlers()) {
+                if (rangeStart != null) {
+                    resultList.add(makeEntry(rangeStart, rangeEnd));
+                    rangeStart = null;
+                    rangeEnd = null;
+                }
+                continue;
+            }
+
+            if (rangeStart == null) {
+                rangeStart = block;
+                rangeEnd = block;
+                continue;
+            }
+
+            if (rangeStart.sameHandlers(block)
+                    && rangeIsValid(rangeStart, block)) {
+                rangeEnd = block;
+                continue;
+            }
+
+            resultList.add(makeEntry(rangeStart, rangeEnd));
+            rangeStart = block;
+            rangeEnd = block;
+        }
+
+        if (rangeStart != null) {
+            resultList.add(makeEntry(rangeStart, rangeEnd));
+        }
+
+        int resultSz = resultList.size();
+        if (resultSz == 0) {
+            return CatchTable.EMPTY;
+        }
+
+        CatchTable result = new CatchTable(resultSz);
+        for (int i = 0; i < resultSz; i++) {
+            result.set(i, resultList.get(i));
+        }
+        result.setImmutable();
+        return result;
     }
 
     /** {@inheritDoc} */
     @Override
-	public boolean hasAnyCatches() {
-        BasicBlockList blocks = method.getBlocks();
-        int size = blocks.size();
-
-        for (int i = 0; i < size; i++) {
-            BasicBlock block = blocks.get(i);
-            TypeList catches = block.getLastInsn().getCatches();
-            if (catches.size() != 0) {
+    public boolean hasAnyCatches() {
+        for (CatchBlock block : blocks) {
+            if (block.hasHandlers()) {
                 return true;
             }
         }
@@ -95,18 +138,11 @@ public final class StdCatchBuilder implements CatchBuilder {
 
     /** {@inheritDoc} */
     @Override
-	public HashSet<Type> getCatchTypes() {
+    public HashSet<Type> getCatchTypes() {
         HashSet<Type> result = new HashSet<Type>(20);
-        BasicBlockList blocks = method.getBlocks();
-        int size = blocks.size();
-
-        for (int i = 0; i < size; i++) {
-            BasicBlock block = blocks.get(i);
-            TypeList catches = block.getLastInsn().getCatches();
-            int catchSize = catches.size();
-
-            for (int j = 0; j < catchSize; j++) {
-                result.add(catches.getType(j));
+        for (CatchBlock block : blocks) {
+            for (Type type : block.exceptionTypes) {
+                result.add(type);
             }
         }
 
@@ -123,196 +159,127 @@ public final class StdCatchBuilder implements CatchBuilder {
      */
     public static CatchTable build(RopMethod method, int[] order,
             BlockAddresses addresses) {
-        int len = order.length;
-        BasicBlockList blocks = method.getBlocks();
-        ArrayList<CatchTable.Entry> resultList =
-            new ArrayList<CatchTable.Entry>(len);
-        CatchHandlerList currentHandlers = CatchHandlerList.EMPTY;
-        BasicBlock currentStartBlock = null;
-        BasicBlock currentEndBlock = null;
+        return new StdCatchBuilder(method, order, addresses).build();
+    }
 
-        for (int i = 0; i < len; i++) {
-            BasicBlock block = blocks.labelToBlock(order[i]);
+    /** Captures the catch-relevant parts of the ROP graph. */
+    private static CatchBlock[] snapshot(RopMethod method, int[] order,
+            BlockAddresses addresses) {
+        BasicBlockList basicBlocks = method.getBlocks();
+        ArrayList<CatchBlock> result = new ArrayList<CatchBlock>(order.length);
 
+        for (int i = 0; i < order.length; i++) {
+            BasicBlock block = basicBlocks.labelToBlock(order[i]);
             if (!block.canThrow()) {
+                /* Blocks that cannot throw do not affect catch ranges. */
+                continue;
+            }
+
+            TypeList catches = block.getLastInsn().getCatches();
+            int catchSize = catches.size();
+            if (catchSize == 0) {
+                /* A throwing block without handlers terminates the range. */
+                result.add(CatchBlock.BARRIER);
+                continue;
+            }
+
+            IntList successors = block.getSuccessors();
+            int succSize = successors.size();
+            int primary = block.getPrimarySuccessor();
+
+            if (((primary == -1) && (succSize != catchSize))
+                    || ((primary != -1)
+                            && ((succSize != (catchSize + 1))
+                                    || (primary != successors.get(catchSize))))) {
                 /*
-                 * There is no need to concern ourselves with the
-                 * placement of blocks that can't throw with respect
-                 * to the blocks that *can* throw.
+                 * Blocks that throw are supposed to list their primary
+                 * successor -- if any -- last in the successors list, but
+                 * that constraint appears to be violated here.
                  */
-                continue;
+                throw new RuntimeException(
+                        "shouldn't happen: weird successors list");
             }
 
-            CatchHandlerList handlers = handlersFor(block, addresses);
-
-            if (currentHandlers.size() == 0) {
-                // This is the start of a new catch range.
-                currentStartBlock = block;
-                currentEndBlock = block;
-                currentHandlers = handlers;
-                continue;
+            /* Reduce the effective catchSize at the first catch-all. */
+            for (int j = 0; j < catchSize; j++) {
+                if (catches.getType(j).equals(Type.OBJECT)) {
+                    catchSize = j + 1;
+                    break;
+                }
             }
 
-            if (currentHandlers.equals(handlers)
-                    && rangeIsValid(currentStartBlock, block, addresses)) {
-                /*
-                 * The block we are looking at now has the same handlers
-                 * as the block that started the currently open catch
-                 * range, and adding it to the currently open range won't
-                 * cause it to be too long.
-                 */
-                currentEndBlock = block;
-                continue;
+            Type[] exceptionTypes = new Type[catchSize];
+            CodeAddress[] handlerAddresses = new CodeAddress[catchSize];
+            for (int j = 0; j < catchSize; j++) {
+                exceptionTypes[j] = catches.getType(j);
+                handlerAddresses[j] = addresses.getStart(successors.get(j));
             }
 
-            /*
-             * The block we are looking at now has incompatible handlers,
-             * so we need to finish off the last entry and start a new
-             * one. Note: We only emit an entry if it has associated handlers.
-             */
-            if (currentHandlers.size() != 0) {
-                CatchTable.Entry entry =
-                    makeEntry(currentStartBlock, currentEndBlock,
-                            currentHandlers, addresses);
-                resultList.add(entry);
-            }
-
-            currentStartBlock = block;
-            currentEndBlock = block;
-            currentHandlers = handlers;
+            result.add(new CatchBlock(addresses.getLast(block),
+                    addresses.getEnd(block), exceptionTypes, handlerAddresses));
         }
 
-        if (currentHandlers.size() != 0) {
-            // Emit an entry for the range that was left hanging.
-            CatchTable.Entry entry =
-                makeEntry(currentStartBlock, currentEndBlock,
-                        currentHandlers, addresses);
-            resultList.add(entry);
-        }
-
-        // Construct the final result.
-
-        int resultSz = resultList.size();
-
-        if (resultSz == 0) {
-            return CatchTable.EMPTY;
-        }
-
-        CatchTable result = new CatchTable(resultSz);
-
-        for (int i = 0; i < resultSz; i++) {
-            result.set(i, resultList.get(i));
-        }
-
-        result.setImmutable();
-        return result;
+        return result.toArray(new CatchBlock[result.size()]);
     }
 
-    /**
-     * Makes the {@link CatchHandlerList} for the given basic block.
-     *
-     * @param block {@code non-null;} block to get entries for
-     * @param addresses {@code non-null;} address objects for each block
-     * @return {@code non-null;} array of entries
-     */
-    private static CatchHandlerList handlersFor(BasicBlock block,
-            BlockAddresses addresses) {
-        IntList successors = block.getSuccessors();
-        int succSize = successors.size();
-        int primary = block.getPrimarySuccessor();
-        TypeList catches = block.getLastInsn().getCatches();
-        int catchSize = catches.size();
-
-        if (catchSize == 0) {
-            return CatchHandlerList.EMPTY;
-        }
-
-        if (((primary == -1) && (succSize != catchSize))
-                || ((primary != -1) &&
-                        ((succSize != (catchSize + 1))
-                                || (primary != successors.get(catchSize))))) {
-            /*
-             * Blocks that throw are supposed to list their primary
-             * successor -- if any -- last in the successors list, but
-             * that constraint appears to be violated here.
-             */
-            throw new RuntimeException(
-                    "shouldn't happen: weird successors list");
-        }
-
-        /*
-         * Reduce the effective catchSize if we spot a catch-all that
-         * isn't at the end.
-         */
-        for (int i = 0; i < catchSize; i++) {
-            Type type = catches.getType(i);
-            if (type.equals(Type.OBJECT)) {
-                catchSize = i + 1;
-                break;
-            }
-        }
-
-        CatchHandlerList result = new CatchHandlerList(catchSize);
-
-        for (int i = 0; i < catchSize; i++) {
-            CstType oneType = new CstType(catches.getType(i));
-            CodeAddress oneHandler = addresses.getStart(successors.get(i));
-            result.set(i, oneType, oneHandler.getAddress());
-        }
-
-        result.setImmutable();
-        return result;
+    /** Makes a {@link CatchTable.Entry} for the given block range. */
+    private static CatchTable.Entry makeEntry(CatchBlock start, CatchBlock end) {
+        /* We start at the last instruction of the start block. */
+        return new CatchTable.Entry(start.lastAddress.getAddress(),
+                end.endAddress.getAddress(), start.toHandlerList());
     }
 
-    /**
-     * Makes a {@link CatchTable#Entry} for the given block range and
-     * handlers.
-     *
-     * @param start {@code non-null;} the start block for the range (inclusive)
-     * @param end {@code non-null;} the start block for the range (also inclusive)
-     * @param handlers {@code non-null;} the handlers for the range
-     * @param addresses {@code non-null;} address objects for each block
-     */
-    private static CatchTable.Entry makeEntry(BasicBlock start,
-            BasicBlock end, CatchHandlerList handlers,
-            BlockAddresses addresses) {
-        /*
-         * We start at the *last* instruction of the start block, since
-         * that's the instruction that can throw...
-         */
-        CodeAddress startAddress = addresses.getLast(start);
-
-        // ...And we end *after* the last instruction of the end block.
-        CodeAddress endAddress = addresses.getEnd(end);
-
-        return new CatchTable.Entry(startAddress.getAddress(),
-                endAddress.getAddress(), handlers);
-    }
-
-    /**
-     * Gets whether the address range for the given two blocks is valid
-     * for a catch handler. This is true as long as the covered range is
-     * under 65536 code units.
-     *
-     * @param start {@code non-null;} the start block for the range (inclusive)
-     * @param end {@code non-null;} the start block for the range (also inclusive)
-     * @param addresses {@code non-null;} address objects for each block
-     * @return {@code true} if the range is valid as a catch range
-     */
-    private static boolean rangeIsValid(BasicBlock start, BasicBlock end,
-            BlockAddresses addresses) {
-        if (start == null) {
-            throw new NullPointerException("start == null");
-        }
-
-        if (end == null) {
-            throw new NullPointerException("end == null");
-        }
-
-        // See above about selection of instructions.
-        int startAddress = addresses.getLast(start).getAddress();
-        int endAddress = addresses.getEnd(end).getAddress();
+    /** Gets whether the address range is valid for a catch handler. */
+    private static boolean rangeIsValid(CatchBlock start, CatchBlock end) {
+        int startAddress = start.lastAddress.getAddress();
+        int endAddress = end.endAddress.getAddress();
 
         return (endAddress - startAddress) <= MAX_CATCH_RANGE;
+    }
+
+    /** Compact snapshot of one catch-capable block. */
+    private static final class CatchBlock {
+        static final CatchBlock BARRIER =
+                new CatchBlock(null, null, new Type[0], new CodeAddress[0]);
+
+        final CodeAddress lastAddress;
+        final CodeAddress endAddress;
+        final Type[] exceptionTypes;
+        final CodeAddress[] handlerAddresses;
+
+        CatchBlock(CodeAddress lastAddress, CodeAddress endAddress,
+                Type[] exceptionTypes, CodeAddress[] handlerAddresses) {
+            this.lastAddress = lastAddress;
+            this.endAddress = endAddress;
+            this.exceptionTypes = exceptionTypes;
+            this.handlerAddresses = handlerAddresses;
+        }
+
+        boolean hasHandlers() {
+            return exceptionTypes.length != 0;
+        }
+
+        boolean sameHandlers(CatchBlock other) {
+            if (exceptionTypes.length != other.exceptionTypes.length) {
+                return false;
+            }
+            for (int i = 0; i < exceptionTypes.length; i++) {
+                if (!exceptionTypes[i].equals(other.exceptionTypes[i])
+                        || handlerAddresses[i] != other.handlerAddresses[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        CatchHandlerList toHandlerList() {
+            CatchHandlerList result = new CatchHandlerList(exceptionTypes.length);
+            for (int i = 0; i < exceptionTypes.length; i++) {
+                result.set(i, new CstType(exceptionTypes[i]),
+                        handlerAddresses[i].getAddress());
+            }
+            result.setImmutable();
+            return result;
+        }
     }
 }
